@@ -111,14 +111,27 @@ export default function ApplyPage() {
               </div>
               <h2 className="text-2xl font-heading text-foreground mb-4">Application Submitted!</h2>
               <p className="font-paragraph text-foreground/70 mb-6">
-                Your ID card application has been successfully submitted. You will receive a WhatsApp confirmation shortly with payment details.
+                Your ID card application has been successfully submitted. Please proceed to payment to complete your order.
               </p>
-              <Button 
-                onClick={() => window.location.href = '/'}
-                className="w-full bg-primary text-primary-foreground"
-              >
-                Return to Home
-              </Button>
+              <div className="space-y-3">
+                <Button 
+                  onClick={() => {
+                    // Open WhatsApp with payment message
+                    const message = encodeURIComponent("Hi! I've just submitted my ID card application and would like to proceed with payment. Please send me the payment details.");
+                    window.open(`https://wa.me/919876543210?text=${message}`, '_blank');
+                  }}
+                  className="w-full bg-brand-green text-white hover:bg-brand-green/90"
+                >
+                  Proceed to Payment
+                </Button>
+                <Button 
+                  onClick={() => window.location.href = '/'}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Return to Home
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
