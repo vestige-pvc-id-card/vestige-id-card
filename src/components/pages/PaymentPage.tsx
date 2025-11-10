@@ -71,7 +71,7 @@ export default function PaymentPage({ orderId: propOrderId }: PaymentPageProps) 
     new URLSearchParams(location.search).get('orderId') || 
     location.state?.orderId;
 
-  const CARD_PRICE = 299; // Price in INR
+  const CARD_PRICE = 100; // Price in INR
   const RAZORPAY_KEY = 'rzp_live_Re2NQGpbsbDDeC'; // Live Razorpay key
 
   useEffect(() => {
