@@ -872,6 +872,7 @@ export default function AdminDashboard() {
                       </DialogContent>
                     </Dialog>
                   </div>
+                </div>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="overflow-x-auto bg-white rounded-lg border">
