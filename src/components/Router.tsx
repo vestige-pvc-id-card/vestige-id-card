@@ -1,17 +1,14 @@
 import { MemberProvider } from '@/integrations';
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { ScrollToTop } from '@/lib/scroll-to-top';
 import ErrorPage from '@/integrations/errorHandlers/ErrorPage';
-
-// Layout component that includes ScrollToTop
-function Layout() {
-  return (
-    <>
-      <ScrollToTop />
-      <Outlet />
-    </>
-  );
-}
+import Layout from '@/components/Layout';
+import HomePage from '@/components/pages/HomePage';
+import ApplyPage from '@/components/pages/ApplyPage';
+import AboutPage from '@/components/pages/AboutPage';
+import PoliciesPage from '@/components/pages/PoliciesPage';
+import ContactPage from '@/components/pages/ContactPage';
+import AdminDashboard from '@/components/pages/AdminDashboard';
 
 const router = createBrowserRouter([
   {
@@ -21,7 +18,43 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <div>Wix Vibe</div>,
+        element: <HomePage />,
+      },
+      {
+        path: "apply",
+        element: <ApplyPage />,
+      },
+      {
+        path: "about",
+        element: <AboutPage />,
+      },
+      {
+        path: "policies",
+        element: <PoliciesPage />,
+      },
+      {
+        path: "policies/terms",
+        element: <PoliciesPage />,
+      },
+      {
+        path: "policies/privacy",
+        element: <PoliciesPage />,
+      },
+      {
+        path: "policies/shipping",
+        element: <PoliciesPage />,
+      },
+      {
+        path: "policies/refund",
+        element: <PoliciesPage />,
+      },
+      {
+        path: "contact",
+        element: <ContactPage />,
+      },
+      {
+        path: "admin",
+        element: <AdminDashboard />,
       },
       {
         path: "*",
