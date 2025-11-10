@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Image } from '@/components/ui/image';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Upload, CheckCircle, RotateCcw, Edit, User, Phone, MapPin, Building2, Camera } from 'lucide-react';
+import { Upload, CheckCircle, RotateCcw, Edit, User, Phone, MapPin, Building2, Camera, CreditCard, AlertCircle } from 'lucide-react';
 
 interface FormData {
   customerName: string;
@@ -29,6 +29,7 @@ export default function ApplyPage() {
   const [photoPreview, setPhotoPreview] = useState<string>('');
   const [showSummary, setShowSummary] = useState(false);
   const [selectedStore, setSelectedStore] = useState<Stores | null>(null);
+  const [submitError, setSubmitError] = useState<string>('');
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>();
 
@@ -62,17 +63,34 @@ export default function ApplyPage() {
   };
 
   const onSubmit = async (data: FormData) => {
+    // Clear any previous errors
+    setSubmitError('');
+    
     if (!showSummary) {
       // First submission - show summary for review
       const store = stores.find(s => s._id === data.storeId);
-      setSelectedStore(store || null);
+      if (!store) {
+        setSubmitError('Please select a store for pickup');
+        return;
+      }
+      if (!data.customerPhoto) {
+        setSubmitError('Please upload your profile photo');
+        return;
+      }
+      setSelectedStore(store);
       setShowSummary(true);
       return;
     }
 
-    // Second submission - actually submit the form
+    // Second submission - actually submit the form and redirect to payment
     setIsSubmitting(true);
+    
     try {
+      // Validate all required fields before submission
+      if (!data.customerName || !data.vestigeId || !data.mobileNumber || !data.customerAddress || !data.customerPhoto || !data.storeId) {
+        throw new Error('All fields are required. Please check your information.');
+      }
+
       const orderData: IDCardOrders = {
         _id: crypto.randomUUID(),
         customerName: data.customerName,
@@ -83,19 +101,30 @@ export default function ApplyPage() {
         orderStatus: 'Pending'
       };
 
+      console.log('Creating order with data:', orderData);
+      
+      // Create the order in the database
       await BaseCrudService.create('idcardorders', orderData);
       
-      // Redirect to payment page with order ID
-      window.location.href = `/payment?orderId=${orderData._id}`;
+      console.log('Order created successfully, redirecting to payment...');
+      
+      // Redirect to payment page with order ID - using React Router navigation
+      const paymentUrl = `/payment?orderId=${orderData._id}`;
+      console.log('Redirecting to:', paymentUrl);
+      
+      // Use window.location for reliable redirect
+      window.location.href = paymentUrl;
+      
     } catch (error) {
       console.error('Error submitting application:', error);
-    } finally {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to submit application. Please try again.');
       setIsSubmitting(false);
     }
   };
 
   const handleEditForm = () => {
     setShowSummary(false);
+    setSubmitError(''); // Clear any errors when going back to edit
   };
 
   if (isSubmitted) {
@@ -248,6 +277,7 @@ export default function ApplyPage() {
                             onChange={handlePhotoUpload}
                             className="hidden"
                             id="photo-upload"
+                            required
                           />
                           <Label
                             htmlFor="photo-upload"
@@ -264,6 +294,9 @@ export default function ApplyPage() {
                           </Label>
                         </div>
                       </div>
+                      {!photoPreview && submitError && (
+                        <p className="text-destructive text-sm mt-1">Profile photo is required</p>
+                      )}
                     </div>
                   </div>
 
@@ -284,8 +317,21 @@ export default function ApplyPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {errors.storeId && (
+                        <p className="text-destructive text-sm mt-1">Please select a store</p>
+                      )}
                     </div>
                   </div>
+
+                  {/* Error Display */}
+                  {submitError && (
+                    <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start space-x-3">
+                      <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-paragraph text-destructive text-sm">{submitError}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <Button
                     type="submit"
@@ -397,12 +443,25 @@ export default function ApplyPage() {
                 {/* Confirmation and Submit */}
                 <div className="space-y-4">
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="font-heading text-foreground mb-2">Next Steps</h4>
+                    <h4 className="font-heading text-foreground mb-2 flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-blue-600" />
+                      Next Steps
+                    </h4>
                     <p className="font-paragraph text-foreground/80 text-sm leading-relaxed">
-                      After confirming your details, you will be redirected to the secure payment page. 
+                      After confirming your details, you will be redirected to the secure Razorpay payment gateway. 
                       Your ID card will be processed once payment is confirmed and you'll receive a WhatsApp confirmation.
                     </p>
                   </div>
+                  
+                  {/* Error Display */}
+                  {submitError && (
+                    <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start space-x-3">
+                      <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-paragraph text-destructive text-sm font-medium">{submitError}</p>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex gap-3">
                     <Button
@@ -410,6 +469,7 @@ export default function ApplyPage() {
                       variant="outline"
                       onClick={handleEditForm}
                       className="flex-1"
+                      disabled={isSubmitting}
                     >
                       Back to Edit
                     </Button>
@@ -417,9 +477,19 @@ export default function ApplyPage() {
                       type="button"
                       onClick={handleSubmit(onSubmit)}
                       disabled={isSubmitting}
-                      className="flex-1 bg-brand-green text-white hover:bg-brand-green/90"
+                      className="flex-1 bg-brand-green text-white hover:bg-brand-green/90 h-12 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                     >
-                      {isSubmitting ? 'Processing...' : 'Proceed to Payment'}
+                      {isSubmitting ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Processing...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-5 h-5" />
+                          Proceed to Payment
+                        </div>
+                      )}
                     </Button>
                   </div>
                 </div>
