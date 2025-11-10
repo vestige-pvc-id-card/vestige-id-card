@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar } from 'lucide-react';
+import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Clock } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 
 export default function AdminDashboard() {
@@ -32,8 +32,15 @@ export default function AdminDashboard() {
     isActive: true
   });
 
+  // Payout management state
+  const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
+  const [storeBankDetails, setStoreBankDetails] = useState<any[]>([]);
+  const [selectedPayoutRequest, setSelectedPayoutRequest] = useState<any>(null);
+  const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
+
   useEffect(() => {
     loadData();
+    loadPayoutData();
   }, []);
 
   useEffect(() => {
@@ -51,6 +58,67 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error loading data:', error);
     }
+  };
+
+  const loadPayoutData = async () => {
+    // Mock payout data - in real app, load from CMS
+    setPayoutRequests([
+      {
+        id: 'PR-001',
+        storeId: 'store-001',
+        storeName: 'Vestige Mumbai Central',
+        amount: 520,
+        requestDate: '2024-05-01',
+        status: 'Pending',
+        bankDetails: {
+          accountHolderName: 'Rajesh Kumar',
+          bankName: 'State Bank of India',
+          accountNumber: '****7890',
+          ifscCode: 'SBIN0001234',
+          preferredMode: 'bank'
+        }
+      },
+      {
+        id: 'PR-002',
+        storeId: 'store-002',
+        storeName: 'Vestige Delhi Central',
+        amount: 410,
+        requestDate: '2024-04-28',
+        status: 'Approved',
+        bankDetails: {
+          accountHolderName: 'Amit Sharma',
+          upiId: 'amit@paytm',
+          preferredMode: 'upi'
+        }
+      }
+    ]);
+
+    setStoreBankDetails([
+      {
+        storeId: 'store-001',
+        storeName: 'Vestige Mumbai Central',
+        accountHolderName: 'Rajesh Kumar',
+        bankName: 'State Bank of India',
+        accountNumber: '1234567890',
+        ifscCode: 'SBIN0001234',
+        upiId: 'rajesh@paytm',
+        preferredMode: 'bank',
+        approved: true,
+        submittedDate: '2024-01-15'
+      },
+      {
+        storeId: 'store-002',
+        storeName: 'Vestige Delhi Central',
+        accountHolderName: 'Amit Sharma',
+        bankName: 'HDFC Bank',
+        accountNumber: '9876543210',
+        ifscCode: 'HDFC0001234',
+        upiId: 'amit@paytm',
+        preferredMode: 'upi',
+        approved: false,
+        submittedDate: '2024-05-01'
+      }
+    ]);
   };
 
   const filterOrders = () => {
@@ -113,6 +181,81 @@ export default function AdminDashboard() {
     // Simulate WhatsApp API call
     console.log(`Sending WhatsApp to order ${orderId}: ${message}`);
     // In real implementation, integrate with Twilio WhatsApp API
+  };
+
+  const approvePayoutRequest = async (requestId: string) => {
+    setPayoutRequests(payoutRequests.map(req => 
+      req.id === requestId ? { ...req, status: 'Approved' } : req
+    ));
+    
+    // Send WhatsApp notification to store
+    const request = payoutRequests.find(req => req.id === requestId);
+    if (request) {
+      console.log(`WhatsApp notification: Payout request ${requestId} approved for ${request.storeName}`);
+    }
+    
+    setIsPayoutDialogOpen(false);
+    alert('Payout request approved successfully!');
+  };
+
+  const rejectPayoutRequest = async (requestId: string) => {
+    setPayoutRequests(payoutRequests.map(req => 
+      req.id === requestId ? { ...req, status: 'Rejected' } : req
+    ));
+    
+    setIsPayoutDialogOpen(false);
+    alert('Payout request rejected.');
+  };
+
+  const markPayoutAsPaid = async (requestId: string) => {
+    setPayoutRequests(payoutRequests.map(req => 
+      req.id === requestId ? { ...req, status: 'Paid', paidDate: new Date().toISOString().split('T')[0] } : req
+    ));
+    
+    // Send WhatsApp notification to store
+    const request = payoutRequests.find(req => req.id === requestId);
+    if (request) {
+      console.log(`WhatsApp notification: Payout of ₹${request.amount} has been processed for ${request.storeName}`);
+    }
+    
+    alert('Payout marked as paid successfully!');
+  };
+
+  const approveBankDetails = async (storeId: string) => {
+    setStoreBankDetails(storeBankDetails.map(details => 
+      details.storeId === storeId ? { ...details, approved: true } : details
+    ));
+    
+    // Send WhatsApp notification to store
+    const details = storeBankDetails.find(d => d.storeId === storeId);
+    if (details) {
+      console.log(`WhatsApp notification: Bank details approved for ${details.storeName}`);
+    }
+    
+    alert('Bank details approved successfully!');
+  };
+
+  const exportPayoutReport = (period: 'monthly' | 'quarterly') => {
+    const csvContent = [
+      ['Store Name', 'Request ID', 'Amount', 'Request Date', 'Status', 'Paid Date', 'Payment Mode'].join(','),
+      ...payoutRequests.map(request => [
+        request.storeName,
+        request.id,
+        `₹${request.amount}`,
+        request.requestDate,
+        request.status,
+        request.paidDate || '-',
+        request.bankDetails.preferredMode
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payout-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   const exportData = (format: 'csv' | 'excel' | 'pdf', period: 'daily' | 'weekly' | 'monthly') => {
@@ -327,9 +470,10 @@ export default function AdminDashboard() {
           transition={{ delay: 0.2, duration: 0.6 }}
         >
           <Tabs defaultValue="orders" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6 bg-white">
+            <TabsList className="grid w-full grid-cols-5 mb-6 bg-white">
               <TabsTrigger value="orders" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Orders Management</TabsTrigger>
               <TabsTrigger value="stores" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Store Partners</TabsTrigger>
+              <TabsTrigger value="payouts" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Payout Control</TabsTrigger>
               <TabsTrigger value="reports" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Reports & Analytics</TabsTrigger>
               <TabsTrigger value="whatsapp" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">WhatsApp Center</TabsTrigger>
             </TabsList>
@@ -624,6 +768,315 @@ export default function AdminDashboard() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Payout Control Panel Tab */}
+            <TabsContent value="payouts">
+              <div className="space-y-6">
+                {/* Payout Overview Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-orange-100 text-sm">Pending Requests</p>
+                          <p className="text-2xl font-heading">{payoutRequests.filter(r => r.status === 'Pending').length}</p>
+                          <p className="text-orange-200 text-xs">Awaiting approval</p>
+                        </div>
+                        <Clock className="w-8 h-8 text-orange-200" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-green-100 text-sm">Approved Payouts</p>
+                          <p className="text-2xl font-heading">{payoutRequests.filter(r => r.status === 'Approved').length}</p>
+                          <p className="text-green-200 text-xs">Ready to process</p>
+                        </div>
+                        <CheckCircle className="w-8 h-8 text-green-200" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-blue-100 text-sm">Total Paid</p>
+                          <p className="text-2xl font-heading">₹{payoutRequests.filter(r => r.status === 'Paid').reduce((sum, r) => sum + r.amount, 0)}</p>
+                          <p className="text-blue-200 text-xs">This month</p>
+                        </div>
+                        <CreditCard className="w-8 h-8 text-blue-200" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-purple-100 text-sm">Bank Approvals</p>
+                          <p className="text-2xl font-heading">{storeBankDetails.filter(d => !d.approved).length}</p>
+                          <p className="text-purple-200 text-xs">Pending verification</p>
+                        </div>
+                        <Users className="w-8 h-8 text-purple-200" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Payout Requests Management */}
+                <Card className="bg-white shadow-sm">
+                  <CardHeader className="bg-slate-50 border-b">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-heading text-slate-900">Payout Requests</CardTitle>
+                      <div className="flex space-x-2">
+                        <Button onClick={() => exportPayoutReport('monthly')} variant="outline" size="sm">
+                          <Download className="w-4 h-4 mr-2" />
+                          Export Monthly
+                        </Button>
+                        <Button onClick={() => exportPayoutReport('quarterly')} variant="outline" size="sm">
+                          <Download className="w-4 h-4 mr-2" />
+                          Export Quarterly
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50">
+                            <TableHead className="font-heading">Request ID</TableHead>
+                            <TableHead className="font-heading">Store Name</TableHead>
+                            <TableHead className="font-heading">Amount</TableHead>
+                            <TableHead className="font-heading">Request Date</TableHead>
+                            <TableHead className="font-heading">Payment Mode</TableHead>
+                            <TableHead className="font-heading">Status</TableHead>
+                            <TableHead className="font-heading">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {payoutRequests.map((request) => (
+                            <TableRow key={request.id} className="hover:bg-slate-50">
+                              <TableCell className="font-mono">{request.id}</TableCell>
+                              <TableCell className="font-medium">{request.storeName}</TableCell>
+                              <TableCell className="font-heading text-lg">₹{request.amount}</TableCell>
+                              <TableCell>{request.requestDate}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize">
+                                  {request.bankDetails.preferredMode}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={
+                                  request.status === 'Pending' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                  request.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-200' :
+                                  request.status === 'Paid' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                  'bg-red-100 text-red-800 border-red-200'
+                                }>
+                                  {request.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex space-x-2">
+                                  <Dialog open={isPayoutDialogOpen && selectedPayoutRequest?.id === request.id} onOpenChange={setIsPayoutDialogOpen}>
+                                    <DialogTrigger asChild>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        onClick={() => setSelectedPayoutRequest(request)}
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-lg">
+                                      <DialogHeader>
+                                        <DialogTitle>Payout Request Details</DialogTitle>
+                                      </DialogHeader>
+                                      <div className="space-y-4">
+                                        <div className="bg-slate-50 p-4 rounded-lg">
+                                          <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                              <Label className="text-sm text-slate-600">Store Name</Label>
+                                              <p className="font-medium">{request.storeName}</p>
+                                            </div>
+                                            <div>
+                                              <Label className="text-sm text-slate-600">Amount</Label>
+                                              <p className="font-heading text-xl">₹{request.amount}</p>
+                                            </div>
+                                            <div>
+                                              <Label className="text-sm text-slate-600">Request Date</Label>
+                                              <p className="font-medium">{request.requestDate}</p>
+                                            </div>
+                                            <div>
+                                              <Label className="text-sm text-slate-600">Payment Mode</Label>
+                                              <p className="font-medium capitalize">{request.bankDetails.preferredMode}</p>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-blue-50 p-4 rounded-lg">
+                                          <h4 className="font-heading text-blue-800 mb-2">Bank Details</h4>
+                                          <div className="space-y-2">
+                                            <div className="flex justify-between">
+                                              <span className="text-sm text-slate-600">Account Holder:</span>
+                                              <span className="font-medium">{request.bankDetails.accountHolderName}</span>
+                                            </div>
+                                            {request.bankDetails.preferredMode === 'bank' && (
+                                              <>
+                                                <div className="flex justify-between">
+                                                  <span className="text-sm text-slate-600">Bank Name:</span>
+                                                  <span className="font-medium">{request.bankDetails.bankName}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-sm text-slate-600">Account Number:</span>
+                                                  <span className="font-mono">{request.bankDetails.accountNumber}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-sm text-slate-600">IFSC Code:</span>
+                                                  <span className="font-mono">{request.bankDetails.ifscCode}</span>
+                                                </div>
+                                              </>
+                                            )}
+                                            {request.bankDetails.preferredMode === 'upi' && (
+                                              <div className="flex justify-between">
+                                                <span className="text-sm text-slate-600">UPI ID:</span>
+                                                <span className="font-medium">{request.bankDetails.upiId}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        <div className="flex space-x-2">
+                                          {request.status === 'Pending' && (
+                                            <>
+                                              <Button 
+                                                onClick={() => approvePayoutRequest(request.id)}
+                                                className="flex-1 bg-green-500 hover:bg-green-600"
+                                              >
+                                                Approve Request
+                                              </Button>
+                                              <Button 
+                                                onClick={() => rejectPayoutRequest(request.id)}
+                                                variant="outline"
+                                                className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                                              >
+                                                Reject Request
+                                              </Button>
+                                            </>
+                                          )}
+                                          {request.status === 'Approved' && (
+                                            <Button 
+                                              onClick={() => markPayoutAsPaid(request.id)}
+                                              className="w-full bg-blue-500 hover:bg-blue-600"
+                                            >
+                                              Mark as Paid
+                                            </Button>
+                                          )}
+                                          {request.status === 'Paid' && (
+                                            <div className="w-full text-center py-2">
+                                              <Badge className="bg-green-100 text-green-800 border-green-200">
+                                                <CheckCircle className="w-4 h-4 mr-1" />
+                                                Payment Completed
+                                              </Badge>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                  
+                                  {request.status === 'Approved' && (
+                                    <Button 
+                                      size="sm" 
+                                      className="bg-blue-500 hover:bg-blue-600"
+                                      onClick={() => markPayoutAsPaid(request.id)}
+                                    >
+                                      Mark Paid
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Bank Details Approval */}
+                <Card className="bg-white shadow-sm">
+                  <CardHeader className="bg-slate-50 border-b">
+                    <CardTitle className="font-heading text-slate-900">Bank Details Verification</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50">
+                            <TableHead className="font-heading">Store Name</TableHead>
+                            <TableHead className="font-heading">Account Holder</TableHead>
+                            <TableHead className="font-heading">Bank/UPI Details</TableHead>
+                            <TableHead className="font-heading">Submitted Date</TableHead>
+                            <TableHead className="font-heading">Status</TableHead>
+                            <TableHead className="font-heading">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {storeBankDetails.map((details) => (
+                            <TableRow key={details.storeId} className="hover:bg-slate-50">
+                              <TableCell className="font-medium">{details.storeName}</TableCell>
+                              <TableCell>{details.accountHolderName}</TableCell>
+                              <TableCell>
+                                {details.preferredMode === 'bank' ? (
+                                  <div className="text-sm">
+                                    <p className="font-medium">{details.bankName}</p>
+                                    <p className="text-slate-600 font-mono">****{details.accountNumber.slice(-4)}</p>
+                                    <p className="text-slate-600 font-mono">{details.ifscCode}</p>
+                                  </div>
+                                ) : (
+                                  <div className="text-sm">
+                                    <p className="font-medium">UPI Transfer</p>
+                                    <p className="text-slate-600">{details.upiId}</p>
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell>{details.submittedDate}</TableCell>
+                              <TableCell>
+                                <Badge className={details.approved ? 'bg-green-100 text-green-800 border-green-200' : 'bg-orange-100 text-orange-800 border-orange-200'}>
+                                  {details.approved ? 'Approved' : 'Pending'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {!details.approved && (
+                                  <Button 
+                                    size="sm" 
+                                    className="bg-green-500 hover:bg-green-600"
+                                    onClick={() => approveBankDetails(details.storeId)}
+                                  >
+                                    Approve
+                                  </Button>
+                                )}
+                                {details.approved && (
+                                  <Badge className="bg-green-100 text-green-800 border-green-200">
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Verified
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="reports">

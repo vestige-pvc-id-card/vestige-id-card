@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders } from '@/entities';
 import { 
@@ -24,7 +26,13 @@ import {
   TrendingUp,
   Clock,
   Users,
-  Shield
+  Shield,
+  CreditCard,
+  Banknote,
+  Lock,
+  Edit,
+  Eye,
+  Wallet
 } from 'lucide-react';
 
 export default function StoreDashboard() {
@@ -36,6 +44,20 @@ export default function StoreDashboard() {
   const [isOtpDialogOpen, setIsOtpDialogOpen] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
+  
+  // Payout related state
+  const [bankDetails, setBankDetails] = useState({
+    accountHolderName: '',
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    upiId: '',
+    preferredMode: 'bank' as 'bank' | 'upi'
+  });
+  const [isBankDetailsDialogOpen, setIsBankDetailsDialogOpen] = useState(false);
+  const [isRequestPayoutDialogOpen, setIsRequestPayoutDialogOpen] = useState(false);
+  const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
+  const [monthlyCommissions, setMonthlyCommissions] = useState<any[]>([]);
 
   // Mock store info - in real app, this would come from authentication
   const storeInfo = {
@@ -43,11 +65,15 @@ export default function StoreDashboard() {
     name: 'Vestige Mumbai Central',
     city: 'Mumbai',
     contactPerson: 'Rajesh Kumar',
-    phone: '+91 98765 43210'
+    phone: '+91 98765 43210',
+    bankDetailsApproved: true, // Mock approval status
+    hasPendingPayout: false,
+    joinedDate: new Date('2024-01-01')
   };
 
   useEffect(() => {
     loadOrders();
+    loadPayoutData();
   }, []);
 
   useEffect(() => {
@@ -65,6 +91,32 @@ export default function StoreDashboard() {
     } catch (error) {
       console.error('Error loading orders:', error);
     }
+  };
+
+  const loadPayoutData = async () => {
+    // Mock data - in real app, load from CMS
+    setMonthlyCommissions([
+      { month: 'January 2024', orders: 45, commission: 450, status: 'Paid', paidDate: '2024-02-01' },
+      { month: 'February 2024', orders: 38, commission: 380, status: 'Paid', paidDate: '2024-03-01' },
+      { month: 'March 2024', orders: 52, commission: 520, status: 'Paid', paidDate: '2024-04-01' },
+      { month: 'April 2024', orders: 41, commission: 410, status: 'Pending', paidDate: null },
+      { month: 'May 2024', orders: 33, commission: 330, status: 'Available', paidDate: null }
+    ]);
+
+    setPayoutRequests([
+      { id: 'PR-001', amount: 520, requestDate: '2024-04-15', status: 'Approved', processedDate: '2024-04-16' },
+      { id: 'PR-002', amount: 410, requestDate: '2024-05-01', status: 'Pending', processedDate: null }
+    ]);
+
+    // Load existing bank details (mock)
+    setBankDetails({
+      accountHolderName: 'Rajesh Kumar',
+      bankName: 'State Bank of India',
+      accountNumber: '1234567890',
+      ifscCode: 'SBIN0001234',
+      upiId: 'rajesh@paytm',
+      preferredMode: 'bank'
+    });
   };
 
   const filterOrders = () => {
@@ -119,6 +171,59 @@ export default function StoreDashboard() {
     alert('Support message sent successfully. Admin will respond shortly.');
   };
 
+  const saveBankDetails = async () => {
+    if (!bankDetails.accountHolderName || !bankDetails.bankName) {
+      alert('Please fill all required fields');
+      return;
+    }
+
+    if (bankDetails.preferredMode === 'bank' && (!bankDetails.accountNumber || !bankDetails.ifscCode)) {
+      alert('Please fill bank account details');
+      return;
+    }
+
+    if (bankDetails.preferredMode === 'upi' && !bankDetails.upiId) {
+      alert('Please enter UPI ID');
+      return;
+    }
+
+    // In real app, save to CMS and mark for admin approval
+    console.log('Bank details saved:', bankDetails);
+    setIsBankDetailsDialogOpen(false);
+    alert('Bank details saved successfully. Awaiting admin approval.');
+  };
+
+  const requestPayout = async () => {
+    const availableCommission = monthlyCommissions
+      .filter(m => m.status === 'Available')
+      .reduce((sum, m) => sum + m.commission, 0);
+
+    if (availableCommission < 500) {
+      alert('Minimum payout amount is ₹500');
+      return;
+    }
+
+    // Check if 30 days have passed since joining
+    const daysSinceJoining = Math.floor((new Date().getTime() - storeInfo.joinedDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSinceJoining < 30) {
+      alert(`Payout requests are available after 30 days. ${30 - daysSinceJoining} days remaining.`);
+      return;
+    }
+
+    // Create payout request
+    const newRequest = {
+      id: `PR-${Date.now()}`,
+      amount: availableCommission,
+      requestDate: new Date().toISOString().split('T')[0],
+      status: 'Pending',
+      processedDate: null
+    };
+
+    setPayoutRequests([...payoutRequests, newRequest]);
+    setIsRequestPayoutDialogOpen(false);
+    alert(`Payout request for ₹${availableCommission} submitted successfully!`);
+  };
+
   const exportCommissionReport = (period: 'daily' | 'monthly') => {
     const deliveredOrders = orders.filter(o => o.orderStatus === 'Received');
     const commission = deliveredOrders.length * 10; // ₹10 per card
@@ -151,7 +256,13 @@ export default function StoreDashboard() {
       const orderDate = new Date(o._createdDate || '');
       const today = new Date();
       return orderDate.toDateString() === today.toDateString() && o.orderStatus === 'Received';
-    }).length
+    }).length,
+    availableForPayout: monthlyCommissions
+      .filter(m => m.status === 'Available')
+      .reduce((sum, m) => sum + m.commission, 0),
+    pendingPayout: monthlyCommissions
+      .filter(m => m.status === 'Pending')
+      .reduce((sum, m) => sum + m.commission, 0)
   };
 
   return (
@@ -259,11 +370,11 @@ export default function StoreDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-emerald-100 text-sm">Total Commission</p>
-                  <p className="text-3xl font-heading">₹{stats.totalCommission}</p>
-                  <p className="text-emerald-200 text-xs">Earned this month</p>
+                  <p className="text-emerald-100 text-sm">Available Payout</p>
+                  <p className="text-3xl font-heading">₹{stats.availableForPayout}</p>
+                  <p className="text-emerald-200 text-xs">Ready to withdraw</p>
                 </div>
-                <IndianRupee className="w-10 h-10 text-emerald-200" />
+                <Wallet className="w-10 h-10 text-emerald-200" />
               </div>
             </CardContent>
           </Card>
@@ -276,12 +387,15 @@ export default function StoreDashboard() {
           transition={{ delay: 0.2, duration: 0.6 }}
         >
           <Tabs defaultValue="deliveries" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6 bg-white border border-blue-100">
+            <TabsList className="grid w-full grid-cols-5 mb-6 bg-white border border-blue-100">
               <TabsTrigger value="deliveries" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
                 Card Deliveries
               </TabsTrigger>
               <TabsTrigger value="commission" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
                 Commission Tracker
+              </TabsTrigger>
+              <TabsTrigger value="payouts" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+                My Payouts
               </TabsTrigger>
               <TabsTrigger value="batches" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
                 Batch Management
@@ -434,12 +548,16 @@ export default function StoreDashboard() {
                         <span className="font-heading text-2xl text-slate-900">₹10</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="font-paragraph text-slate-700">Today's Deliveries</span>
-                        <span className="font-heading text-2xl text-blue-600">{stats.todayDeliveries}</span>
+                        <span className="font-paragraph text-slate-700">Available for Payout</span>
+                        <span className="font-heading text-2xl text-green-600">₹{stats.availableForPayout}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="font-paragraph text-slate-700">Pending Payout</span>
+                        <span className="font-heading text-2xl text-orange-600">₹{stats.pendingPayout}</span>
                       </div>
                       <hr className="border-slate-200" />
                       <div className="flex justify-between items-center">
-                        <span className="font-heading text-slate-900">Total Commission</span>
+                        <span className="font-heading text-slate-900">Total Earned</span>
                         <span className="font-heading text-3xl text-emerald-600">₹{stats.totalCommission}</span>
                       </div>
                     </div>
@@ -448,33 +566,320 @@ export default function StoreDashboard() {
 
                 <Card className="bg-white shadow-sm border border-blue-100">
                   <CardHeader className="bg-blue-50 border-b border-blue-100">
-                    <CardTitle className="font-heading text-slate-900">Download Reports</CardTitle>
+                    <CardTitle className="font-heading text-slate-900">Monthly Breakdown</CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
-                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                        <h3 className="font-heading text-green-800 mb-2">Daily Commission Report</h3>
-                        <p className="text-sm text-green-700 mb-3">Today's deliveries and earnings</p>
-                        <Button 
-                          onClick={() => exportCommissionReport('daily')} 
-                          className="w-full bg-green-500 hover:bg-green-600"
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Download Daily Report
-                        </Button>
+                      {monthlyCommissions.slice(0, 5).map((month, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-slate-900">{month.month}</p>
+                            <p className="text-sm text-slate-600">{month.orders} cards delivered</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-heading text-lg">₹{month.commission}</p>
+                            <Badge className={
+                              month.status === 'Paid' ? 'bg-green-100 text-green-800 border-green-200' :
+                              month.status === 'Pending' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                              'bg-blue-100 text-blue-800 border-blue-200'
+                            }>
+                              {month.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {/* My Payouts Tab */}
+            <TabsContent value="payouts">
+              <div className="space-y-6">
+                {/* Bank Details Section */}
+                <Card className="bg-white shadow-sm border border-blue-100">
+                  <CardHeader className="bg-blue-50 border-b border-blue-100">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-heading text-slate-900 flex items-center">
+                        <CreditCard className="w-6 h-6 mr-2" />
+                        Bank & UPI Details
+                      </CardTitle>
+                      <div className="flex items-center space-x-2">
+                        {storeInfo.bankDetailsApproved ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-200">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Approved
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                            <Clock className="w-4 h-4 mr-1" />
+                            Pending Approval
+                          </Badge>
+                        )}
+                        <Dialog open={isBankDetailsDialogOpen} onOpenChange={setIsBankDetailsDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              disabled={storeInfo.hasPendingPayout}
+                            >
+                              {storeInfo.hasPendingPayout ? (
+                                <>
+                                  <Lock className="w-4 h-4 mr-2" />
+                                  Locked
+                                </>
+                              ) : (
+                                <>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit
+                                </>
+                              )}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle>Update Bank & UPI Details</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                  Changes require admin approval. Details will be locked during pending payouts.
+                                </AlertDescription>
+                              </Alert>
+                              
+                              <div>
+                                <Label htmlFor="accountHolderName">Account Holder Name *</Label>
+                                <Input
+                                  id="accountHolderName"
+                                  value={bankDetails.accountHolderName}
+                                  onChange={(e) => setBankDetails({...bankDetails, accountHolderName: e.target.value})}
+                                  placeholder="Enter account holder name"
+                                />
+                              </div>
+
+                              <div>
+                                <Label htmlFor="preferredMode">Preferred Payout Mode *</Label>
+                                <Select 
+                                  value={bankDetails.preferredMode} 
+                                  onValueChange={(value: 'bank' | 'upi') => setBankDetails({...bankDetails, preferredMode: value})}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="bank">Bank Transfer</SelectItem>
+                                    <SelectItem value="upi">UPI Transfer</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {bankDetails.preferredMode === 'bank' && (
+                                <>
+                                  <div>
+                                    <Label htmlFor="bankName">Bank Name *</Label>
+                                    <Input
+                                      id="bankName"
+                                      value={bankDetails.bankName}
+                                      onChange={(e) => setBankDetails({...bankDetails, bankName: e.target.value})}
+                                      placeholder="Enter bank name"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="accountNumber">Account Number *</Label>
+                                    <Input
+                                      id="accountNumber"
+                                      value={bankDetails.accountNumber}
+                                      onChange={(e) => setBankDetails({...bankDetails, accountNumber: e.target.value})}
+                                      placeholder="Enter account number"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="ifscCode">IFSC Code *</Label>
+                                    <Input
+                                      id="ifscCode"
+                                      value={bankDetails.ifscCode}
+                                      onChange={(e) => setBankDetails({...bankDetails, ifscCode: e.target.value})}
+                                      placeholder="Enter IFSC code"
+                                    />
+                                  </div>
+                                </>
+                              )}
+
+                              {bankDetails.preferredMode === 'upi' && (
+                                <div>
+                                  <Label htmlFor="upiId">UPI ID *</Label>
+                                  <Input
+                                    id="upiId"
+                                    value={bankDetails.upiId}
+                                    onChange={(e) => setBankDetails({...bankDetails, upiId: e.target.value})}
+                                    placeholder="Enter UPI ID (e.g., name@paytm)"
+                                  />
+                                </div>
+                              )}
+
+                              <Button onClick={saveBankDetails} className="w-full bg-blue-500 hover:bg-blue-600">
+                                Save Details
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
-                      
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <h3 className="font-heading text-blue-800 mb-2">Monthly Commission Report</h3>
-                        <p className="text-sm text-blue-700 mb-3">Complete month's performance</p>
-                        <Button 
-                          onClick={() => exportCommissionReport('monthly')} 
-                          className="w-full bg-blue-500 hover:bg-blue-600"
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Download Monthly Report
-                        </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-sm text-slate-600">Account Holder Name</Label>
+                          <p className="font-medium">{bankDetails.accountHolderName || 'Not set'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-slate-600">Preferred Mode</Label>
+                          <p className="font-medium capitalize">{bankDetails.preferredMode} Transfer</p>
+                        </div>
+                        {bankDetails.preferredMode === 'bank' && (
+                          <>
+                            <div>
+                              <Label className="text-sm text-slate-600">Bank Name</Label>
+                              <p className="font-medium">{bankDetails.bankName || 'Not set'}</p>
+                            </div>
+                            <div>
+                              <Label className="text-sm text-slate-600">Account Number</Label>
+                              <p className="font-medium font-mono">
+                                {bankDetails.accountNumber ? `****${bankDetails.accountNumber.slice(-4)}` : 'Not set'}
+                              </p>
+                            </div>
+                          </>
+                        )}
                       </div>
+                      <div className="space-y-4">
+                        {bankDetails.preferredMode === 'bank' && (
+                          <div>
+                            <Label className="text-sm text-slate-600">IFSC Code</Label>
+                            <p className="font-medium font-mono">{bankDetails.ifscCode || 'Not set'}</p>
+                          </div>
+                        )}
+                        {bankDetails.preferredMode === 'upi' && (
+                          <div>
+                            <Label className="text-sm text-slate-600">UPI ID</Label>
+                            <p className="font-medium">{bankDetails.upiId || 'Not set'}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payout Actions */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+                    <CardContent className="p-6">
+                      <div className="text-center">
+                        <Banknote className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                        <h3 className="font-heading text-xl text-green-800 mb-2">Request Payout</h3>
+                        <p className="text-green-700 mb-4">Available: ₹{stats.availableForPayout}</p>
+                        <Dialog open={isRequestPayoutDialogOpen} onOpenChange={setIsRequestPayoutDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button 
+                              className="w-full bg-green-500 hover:bg-green-600"
+                              disabled={stats.availableForPayout < 500 || !storeInfo.bankDetailsApproved}
+                            >
+                              <Wallet className="w-4 h-4 mr-2" />
+                              Request Payout
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Confirm Payout Request</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div className="bg-green-50 p-4 rounded-lg">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="font-medium">Payout Amount:</span>
+                                  <span className="font-heading text-xl text-green-600">₹{stats.availableForPayout}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-slate-600">Payout Mode:</span>
+                                  <span className="text-sm capitalize">{bankDetails.preferredMode} Transfer</span>
+                                </div>
+                              </div>
+                              <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                  Payout will be processed within 2-3 business days. You'll receive a WhatsApp notification once processed.
+                                </AlertDescription>
+                              </Alert>
+                              <Button onClick={requestPayout} className="w-full bg-green-500 hover:bg-green-600">
+                                Confirm Request
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        {stats.availableForPayout < 500 && (
+                          <p className="text-sm text-slate-500 mt-2">Minimum payout: ₹500</p>
+                        )}
+                        {!storeInfo.bankDetailsApproved && (
+                          <p className="text-sm text-orange-600 mt-2">Bank details approval required</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+                    <CardContent className="p-6">
+                      <div className="text-center">
+                        <Clock className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+                        <h3 className="font-heading text-xl text-blue-800 mb-2">Pending Payout</h3>
+                        <p className="text-blue-700 mb-4">Amount: ₹{stats.pendingPayout}</p>
+                        <Button variant="outline" className="w-full" disabled>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Processing...
+                        </Button>
+                        <p className="text-sm text-slate-500 mt-2">Will be processed soon</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Payout History */}
+                <Card className="bg-white shadow-sm border border-blue-100">
+                  <CardHeader className="bg-blue-50 border-b border-blue-100">
+                    <CardTitle className="font-heading text-slate-900">Payout History</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50">
+                            <TableHead className="font-heading">Request ID</TableHead>
+                            <TableHead className="font-heading">Amount</TableHead>
+                            <TableHead className="font-heading">Request Date</TableHead>
+                            <TableHead className="font-heading">Status</TableHead>
+                            <TableHead className="font-heading">Processed Date</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {payoutRequests.map((request) => (
+                            <TableRow key={request.id} className="hover:bg-blue-50">
+                              <TableCell className="font-mono">{request.id}</TableCell>
+                              <TableCell className="font-heading text-lg">₹{request.amount}</TableCell>
+                              <TableCell>{request.requestDate}</TableCell>
+                              <TableCell>
+                                <Badge className={
+                                  request.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-200' :
+                                  request.status === 'Pending' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                  'bg-red-100 text-red-800 border-red-200'
+                                }>
+                                  {request.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{request.processedDate || '-'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   </CardContent>
                 </Card>
