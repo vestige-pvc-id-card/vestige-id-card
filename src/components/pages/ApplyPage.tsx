@@ -35,13 +35,6 @@ export default function ApplyPage() {
     loadStores();
   }, []);
 
-  useEffect(() => {
-    // Seed stores if needed
-    import('@/lib/seed-data').then(({ seedStores }) => {
-      seedStores();
-    });
-  }, []);
-
   const loadStores = async () => {
     try {
       const { items } = await BaseCrudService.getAll<Stores>('stores');

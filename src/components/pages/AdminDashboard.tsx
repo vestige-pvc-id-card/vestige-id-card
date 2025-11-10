@@ -87,64 +87,9 @@ export default function AdminDashboard() {
   };
 
   const loadPayoutData = async () => {
-    // Mock payout data - in real app, load from CMS
-    setPayoutRequests([
-      {
-        id: 'PR-001',
-        storeId: 'store-001',
-        storeName: 'Vestige Mumbai Central',
-        amount: 520,
-        requestDate: '2024-05-01',
-        status: 'Pending',
-        bankDetails: {
-          accountHolderName: 'Rajesh Kumar',
-          bankName: 'State Bank of India',
-          accountNumber: '****7890',
-          ifscCode: 'SBIN0001234',
-          preferredMode: 'bank'
-        }
-      },
-      {
-        id: 'PR-002',
-        storeId: 'store-002',
-        storeName: 'Vestige Delhi Central',
-        amount: 410,
-        requestDate: '2024-04-28',
-        status: 'Approved',
-        bankDetails: {
-          accountHolderName: 'Amit Sharma',
-          upiId: 'amit@paytm',
-          preferredMode: 'upi'
-        }
-      }
-    ]);
-
-    setStoreBankDetails([
-      {
-        storeId: 'store-001',
-        storeName: 'Vestige Mumbai Central',
-        accountHolderName: 'Rajesh Kumar',
-        bankName: 'State Bank of India',
-        accountNumber: '1234567890',
-        ifscCode: 'SBIN0001234',
-        upiId: 'rajesh@paytm',
-        preferredMode: 'bank',
-        approved: true,
-        submittedDate: '2024-01-15'
-      },
-      {
-        storeId: 'store-002',
-        storeName: 'Vestige Delhi Central',
-        accountHolderName: 'Amit Sharma',
-        bankName: 'HDFC Bank',
-        accountNumber: '9876543210',
-        ifscCode: 'HDFC0001234',
-        upiId: 'amit@paytm',
-        preferredMode: 'upi',
-        approved: false,
-        submittedDate: '2024-05-01'
-      }
-    ]);
+    // Initialize with empty arrays - in production, load from CMS
+    setPayoutRequests([]);
+    setStoreBankDetails([]);
   };
 
   const loadStoreCredentials = async () => {
@@ -1691,7 +1636,7 @@ export default function AdminDashboard() {
                         { time: '2 minutes ago', message: 'Order confirmation sent to +91 98765 43210', status: 'delivered' },
                         { time: '5 minutes ago', message: 'Bulk notification sent to 15 pending orders', status: 'delivered' },
                         { time: '10 minutes ago', message: 'Pickup reminder sent to +91 98765 43211', status: 'delivered' },
-                        { time: '15 minutes ago', message: 'Store notification sent to Mumbai Central', status: 'delivered' },
+                        { time: '15 minutes ago', message: 'Store notification sent to partner store', status: 'delivered' },
                         { time: '20 minutes ago', message: 'Payment confirmation sent to +91 98765 43212', status: 'delivered' }
                       ].map((activity, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">

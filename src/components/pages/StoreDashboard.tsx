@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BaseCrudService } from '@/integrations';
-import { IDCardOrders } from '@/entities';
+import { IDCardOrders, Stores } from '@/entities';
 import { 
   Package, 
   CheckCircle, 
@@ -61,17 +61,17 @@ export default function StoreDashboard() {
   const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
   const [monthlyCommissions, setMonthlyCommissions] = useState<any[]>([]);
 
-  // Mock store info - in real app, this would come from authentication
-  const storeInfo = {
-    id: 'store-001',
-    name: 'Vestige Mumbai Central',
-    city: 'Mumbai',
-    contactPerson: 'Rajesh Kumar',
-    phone: '+91 98765 43210',
-    bankDetailsApproved: true, // Mock approval status
+  // Store info state - loaded from database
+  const [storeInfo, setStoreInfo] = useState<any>({
+    id: '',
+    name: 'Loading...',
+    city: '',
+    contactPerson: '',
+    phone: '',
+    bankDetailsApproved: false,
     hasPendingPayout: false,
-    joinedDate: new Date('2024-01-01')
-  };
+    joinedDate: new Date()
+  });
 
   useEffect(() => {
     // Check if user is authenticated
@@ -81,6 +81,7 @@ export default function StoreDashboard() {
       return;
     }
     
+    loadStoreInfo();
     loadOrders();
     loadPayoutData();
   }, [navigate]);
@@ -88,6 +89,40 @@ export default function StoreDashboard() {
   useEffect(() => {
     filterOrders();
   }, [orders, searchTerm]);
+
+  const loadStoreInfo = async () => {
+    try {
+      const storeId = localStorage.getItem('storeId');
+      if (storeId) {
+        const store = await BaseCrudService.getById<Stores>('stores', storeId);
+        if (store) {
+          setStoreInfo({
+            id: store._id,
+            name: store.storeName || 'Store',
+            city: store.storeCity || '',
+            contactPerson: store.contactPerson || '',
+            phone: store.contactNumber || '',
+            bankDetailsApproved: true, // In real app, check approval status
+            hasPendingPayout: false,
+            joinedDate: store._createdDate ? new Date(store._createdDate) : new Date()
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading store info:', error);
+      // Fallback to default values if store not found
+      setStoreInfo({
+        id: 'unknown',
+        name: 'Store Partner',
+        city: '',
+        contactPerson: '',
+        phone: '',
+        bankDetailsApproved: false,
+        hasPendingPayout: false,
+        joinedDate: new Date()
+      });
+    }
+  };
 
   const loadOrders = async () => {
     try {
