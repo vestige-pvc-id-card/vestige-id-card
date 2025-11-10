@@ -18,7 +18,6 @@ interface FormData {
   mobileNumber: string;
   customerAddress: string;
   customerPhoto: string;
-  customerSignature: string;
   storeId: string;
 }
 
@@ -27,7 +26,6 @@ export default function ApplyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string>('');
-  const [signaturePreview, setSignaturePreview] = useState<string>('');
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>();
 
@@ -60,19 +58,6 @@ export default function ApplyPage() {
     }
   };
 
-  const handleSignatureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setSignaturePreview(result);
-        setValue('customerSignature', result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     try {
@@ -83,7 +68,6 @@ export default function ApplyPage() {
         mobileNumber: data.mobileNumber,
         customerAddress: data.customerAddress,
         customerPhoto: data.customerPhoto,
-        customerSignature: data.customerSignature,
         orderStatus: 'Pending'
       };
 
@@ -250,34 +234,6 @@ export default function ApplyPage() {
                         </div>
                       </div>
                     </div>
-
-                    <div>
-                      <Label className="font-paragraph">Digital Signature *</Label>
-                      <div className="mt-2 flex items-center space-x-4">
-                        <div className="flex-1">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleSignatureUpload}
-                            className="hidden"
-                            id="signature-upload"
-                          />
-                          <Label
-                            htmlFor="signature-upload"
-                            className="flex items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary transition-colors"
-                          >
-                            {signaturePreview ? (
-                              <Image src={signaturePreview} alt="Signature preview" className="h-full w-full object-contain rounded-lg" />
-                            ) : (
-                              <div className="text-center">
-                                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-                                <span className="text-sm text-gray-500">Click to upload signature</span>
-                              </div>
-                            )}
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
                   {/* Store Selection */}
@@ -348,13 +304,6 @@ export default function ApplyPage() {
                     <div className="flex-1">
                       <div className="text-sm font-medium">{watch('customerName') || 'YOUR NAME'}</div>
                       <div className="text-xs opacity-80">{watch('vestigeId') || 'VESTIGE ID'}</div>
-                      <div className="text-xs opacity-80 mt-2">
-                        {signaturePreview ? (
-                          <Image src={signaturePreview} alt="Signature" className="h-6 w-20 object-contain" />
-                        ) : (
-                          'SIGNATURE'
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
