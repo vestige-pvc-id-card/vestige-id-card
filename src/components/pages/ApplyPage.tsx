@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Image } from '@/components/ui/image';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Upload, CreditCard, CheckCircle } from 'lucide-react';
+import { Upload, CreditCard, CheckCircle, RotateCcw } from 'lucide-react';
 
 interface FormData {
   customerName: string;
@@ -280,33 +281,88 @@ export default function ApplyPage() {
                 <CardTitle className="font-heading text-foreground">ID Card Preview</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-gradient-to-br from-primary to-primary/80 rounded-lg p-6 text-white aspect-[1.6/1] flex flex-col justify-between">
-                  <div className="flex items-start justify-between">
-                    <Image
-                      src="https://static.wixstatic.com/media/1878e6_8599554ce510497391660ead71601ec3~mv2.png"
-                      alt="Vestige Logo"
-                      width={60}
-                      className="brightness-0 invert"
-                    />
-                    <div className="text-right">
-                      <div className="text-xs opacity-80">ID CARD</div>
-                    </div>
-                  </div>
+                <Tabs defaultValue="front" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="front">Front</TabsTrigger>
+                    <TabsTrigger value="back">Back</TabsTrigger>
+                  </TabsList>
                   
-                  <div className="flex items-end space-x-4">
-                    <div className="w-16 h-20 bg-white/20 rounded border-2 border-white/30 flex items-center justify-center">
-                      {photoPreview ? (
-                        <Image src={photoPreview} alt="Photo" className="w-full h-full object-cover rounded" />
-                      ) : (
-                        <span className="text-xs text-center">PHOTO</span>
-                      )}
+                  <TabsContent value="front" className="mt-4">
+                    <div className="relative w-full aspect-[1.6/1] rounded-lg overflow-hidden">
+                      {/* Front template background */}
+                      <Image
+                        src="https://static.wixstatic.com/media/1878e6_654d4ab61f714e48afd6621b4605e3ef~mv2.jpg"
+                        alt="ID Card Front Template"
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      {/* Overlay content positioned according to template */}
+                      <div className="absolute inset-0">
+                        {/* Photo placement - positioned in the photo area of the template */}
+                        <div className="absolute top-[25%] left-[8%] w-[25%] h-[45%]">
+                          {photoPreview ? (
+                            <Image 
+                              src={photoPreview} 
+                              alt="Customer Photo" 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-white/80 flex items-center justify-center text-xs text-gray-600">
+                              PHOTO
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Distributor ID - positioned in the ID field */}
+                        <div className="absolute top-[32%] left-[45%] text-black font-bold text-sm">
+                          {watch('vestigeId') || '71115492'}
+                        </div>
+                        
+                        {/* Name field - positioned in the name area */}
+                        <div className="absolute top-[52%] left-[8%] right-[8%]">
+                          <div className="text-black text-sm font-medium border-b border-black/30 pb-1">
+                            {watch('customerName') || ''}
+                          </div>
+                        </div>
+                        
+                        {/* Address field - positioned in the address area */}
+                        <div className="absolute top-[62%] left-[8%] right-[8%]">
+                          <div className="text-black text-xs leading-tight">
+                            {watch('customerAddress') ? (
+                              <div className="space-y-1">
+                                <div className="border-b border-black/30 pb-1">
+                                  {watch('customerAddress').split(',')[0] || ''}
+                                </div>
+                                <div className="border-b border-black/30 pb-1">
+                                  {watch('customerAddress').split(',').slice(1).join(',').trim() || ''}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <div className="border-b border-black/30 pb-1"></div>
+                                <div className="border-b border-black/30 pb-1"></div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{watch('customerName') || 'YOUR NAME'}</div>
-                      <div className="text-xs opacity-80">{watch('vestigeId') || 'VESTIGE ID'}</div>
+                  </TabsContent>
+                  
+                  <TabsContent value="back" className="mt-4">
+                    <div className="relative w-full aspect-[1.6/1] rounded-lg overflow-hidden">
+                      {/* Back template background */}
+                      <Image
+                        src="https://static.wixstatic.com/media/1878e6_4375026adec345feb75c6ec63e03c246~mv2.jpg"
+                        alt="ID Card Back Template"
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      {/* The back side contains static information as per the template */}
+                      {/* No dynamic content overlay needed for the back side */}
                     </div>
-                  </div>
-                </div>
+                  </TabsContent>
+                </Tabs>
                 
                 <div className="mt-6 p-4 bg-light-blue/30 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
