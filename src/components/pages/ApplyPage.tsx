@@ -415,9 +415,9 @@ export default function ApplyPage() {
                       type="button"
                       onClick={handleSubmit(onSubmit)}
                       disabled={isSubmitting}
-                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                      className="flex-1 bg-brand-green text-white hover:bg-brand-green/90"
                     >
-                      {isSubmitting ? 'Submitting...' : 'Confirm & Submit'}
+                      {isSubmitting ? 'Processing...' : 'Proceed to Payment'}
                     </Button>
                   </div>
                 </div>
