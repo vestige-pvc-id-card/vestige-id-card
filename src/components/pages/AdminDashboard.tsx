@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer, Trash2 } from 'lucide-react';
+import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer, Trash2, Key, Copy, RefreshCw, EyeOff } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 
 export default function AdminDashboard() {
@@ -41,9 +41,22 @@ export default function AdminDashboard() {
   const [selectedPayoutRequest, setSelectedPayoutRequest] = useState<any>(null);
   const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
 
+  // Store credentials management state
+  const [storeCredentials, setStoreCredentials] = useState<any[]>([]);
+  const [isCredentialsDialogOpen, setIsCredentialsDialogOpen] = useState(false);
+  const [selectedStoreForCredentials, setSelectedStoreForCredentials] = useState<Stores | null>(null);
+  const [credentialsForm, setCredentialsForm] = useState({
+    loginId: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isEditingCredentials, setIsEditingCredentials] = useState(false);
+
   useEffect(() => {
     loadData();
     loadPayoutData();
+    loadStoreCredentials();
   }, []);
 
   useEffect(() => {
@@ -124,6 +137,30 @@ export default function AdminDashboard() {
     ]);
   };
 
+  const loadStoreCredentials = async () => {
+    // Mock store credentials data - in real app, load from secure CMS collection
+    setStoreCredentials([
+      {
+        storeId: 'store-001',
+        storeName: 'Vestige Mumbai Central',
+        loginId: 'mumbai_central_001',
+        password: 'SecurePass123!',
+        createdDate: '2024-01-15',
+        lastUpdated: '2024-01-15',
+        isActive: true
+      },
+      {
+        storeId: 'store-002',
+        storeName: 'Vestige Delhi Central',
+        loginId: 'delhi_central_002',
+        password: 'StorePass456@',
+        createdDate: '2024-02-01',
+        lastUpdated: '2024-02-01',
+        isActive: true
+      }
+    ]);
+  };
+
   const filterOrders = () => {
     let filtered = orders;
 
@@ -196,6 +233,114 @@ export default function AdminDashboard() {
   const handleDeleteStore = (store: Stores) => {
     setStoreToDelete(store);
     setIsDeleteDialogOpen(true);
+  };
+
+  // Store credentials management functions
+  const generateSecurePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  const generateLoginId = (storeName: string) => {
+    const cleanName = storeName.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '_')
+      .substring(0, 20);
+    const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `${cleanName}_${randomSuffix}`;
+  };
+
+  const openCredentialsDialog = (store: Stores, isEdit = false) => {
+    setSelectedStoreForCredentials(store);
+    setIsEditingCredentials(isEdit);
+    
+    if (isEdit) {
+      const existingCredentials = storeCredentials.find(cred => cred.storeId === store._id);
+      if (existingCredentials) {
+        setCredentialsForm({
+          loginId: existingCredentials.loginId,
+          password: existingCredentials.password,
+          confirmPassword: existingCredentials.password
+        });
+      }
+    } else {
+      setCredentialsForm({
+        loginId: generateLoginId(store.storeName || ''),
+        password: generateSecurePassword(),
+        confirmPassword: ''
+      });
+    }
+    
+    setIsCredentialsDialogOpen(true);
+  };
+
+  const saveStoreCredentials = async () => {
+    if (!selectedStoreForCredentials) return;
+    
+    if (credentialsForm.password !== credentialsForm.confirmPassword) {
+      alert('Passwords do not match!');
+      return;
+    }
+
+    if (credentialsForm.password.length < 8) {
+      alert('Password must be at least 8 characters long!');
+      return;
+    }
+
+    try {
+      const newCredentials = {
+        storeId: selectedStoreForCredentials._id,
+        storeName: selectedStoreForCredentials.storeName,
+        loginId: credentialsForm.loginId,
+        password: credentialsForm.password,
+        createdDate: isEditingCredentials ? 
+          storeCredentials.find(c => c.storeId === selectedStoreForCredentials._id)?.createdDate || new Date().toISOString().split('T')[0] :
+          new Date().toISOString().split('T')[0],
+        lastUpdated: new Date().toISOString().split('T')[0],
+        isActive: true
+      };
+
+      if (isEditingCredentials) {
+        setStoreCredentials(storeCredentials.map(cred => 
+          cred.storeId === selectedStoreForCredentials._id ? newCredentials : cred
+        ));
+      } else {
+        setStoreCredentials([...storeCredentials.filter(c => c.storeId !== selectedStoreForCredentials._id), newCredentials]);
+      }
+
+      setIsCredentialsDialogOpen(false);
+      setCredentialsForm({ loginId: '', password: '', confirmPassword: '' });
+      setSelectedStoreForCredentials(null);
+      setIsEditingCredentials(false);
+      
+      alert(`Store credentials ${isEditingCredentials ? 'updated' : 'created'} successfully!`);
+    } catch (error) {
+      console.error('Error saving store credentials:', error);
+      alert('Failed to save credentials. Please try again.');
+    }
+  };
+
+  const resetStorePassword = (storeId: string) => {
+    const newPassword = generateSecurePassword();
+    setStoreCredentials(storeCredentials.map(cred => 
+      cred.storeId === storeId ? 
+        { ...cred, password: newPassword, lastUpdated: new Date().toISOString().split('T')[0] } : 
+        cred
+    ));
+    alert(`Password reset successfully! New password: ${newPassword}`);
+  };
+
+  const copyToClipboard = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    alert(`${type} copied to clipboard!`);
+  };
+
+  const getStoreCredentials = (storeId: string) => {
+    return storeCredentials.find(cred => cred.storeId === storeId);
   };
 
   const sendWhatsAppNotification = async (orderId: string, message: string) => {
@@ -652,17 +797,27 @@ export default function AdminDashboard() {
                 <CardHeader className="bg-slate-50 border-b">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <CardTitle className="font-heading text-slate-900">Store Partner Management</CardTitle>
-                    <Dialog open={isAddStoreOpen} onOpenChange={setIsAddStoreOpen}>
-                      <DialogTrigger asChild>
-                        <Button className="bg-blue-500 hover:bg-blue-600 text-white">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add New Store
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Add New Store Partner</DialogTitle>
-                        </DialogHeader>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="flex items-center space-x-2"
+                      >
+                        <EyeOff className="w-4 h-4" />
+                        <span>{showPassword ? 'Hide' : 'Show'} Passwords</span>
+                      </Button>
+                      <Dialog open={isAddStoreOpen} onOpenChange={setIsAddStoreOpen}>
+                        <DialogTrigger asChild>
+                          <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add New Store
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Add New Store Partner</DialogTitle>
+                          </DialogHeader>
                         <div className="space-y-4">
                           <div>
                             <Label htmlFor="storeName">Store Name</Label>
@@ -728,6 +883,7 @@ export default function AdminDashboard() {
                           <TableHead className="font-heading">Contact Person</TableHead>
                           <TableHead className="font-heading">Phone</TableHead>
                           <TableHead className="font-heading">Status</TableHead>
+                          <TableHead className="font-heading">Login Credentials</TableHead>
                           <TableHead className="font-heading">Orders</TableHead>
                           <TableHead className="font-heading">Performance</TableHead>
                           <TableHead className="font-heading">Actions</TableHead>
@@ -749,6 +905,71 @@ export default function AdminDashboard() {
                                 <Badge className={store.isActive ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}>
                                   {store.isActive ? 'Active' : 'Inactive'}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {(() => {
+                                  const credentials = getStoreCredentials(store._id);
+                                  return credentials ? (
+                                    <div className="space-y-1">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-xs text-slate-600">ID:</span>
+                                        <code className="text-xs bg-slate-100 px-1 rounded">{credentials.loginId}</code>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => copyToClipboard(credentials.loginId, 'Login ID')}
+                                          className="h-4 w-4 p-0"
+                                        >
+                                          <Copy className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-xs text-slate-600">Pass:</span>
+                                        <code className="text-xs bg-slate-100 px-1 rounded">
+                                          {showPassword ? credentials.password : '••••••••'}
+                                        </code>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => copyToClipboard(credentials.password, 'Password')}
+                                          className="h-4 w-4 p-0"
+                                        >
+                                          <Copy className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                      <div className="flex space-x-1">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => openCredentialsDialog(store, true)}
+                                          className="h-6 px-2 text-xs"
+                                        >
+                                          <Edit className="w-3 h-3 mr-1" />
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => resetStorePassword(store._id)}
+                                          className="h-6 px-2 text-xs"
+                                        >
+                                          <RefreshCw className="w-3 h-3 mr-1" />
+                                          Reset
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openCredentialsDialog(store)}
+                                      className="h-8 px-3 text-xs"
+                                    >
+                                      <Key className="w-3 h-3 mr-1" />
+                                      Create Login
+                                    </Button>
+                                  );
+                                })()}
                               </TableCell>
                               <TableCell>
                                 <div className="text-center">
@@ -1482,6 +1703,137 @@ export default function AdminDashboard() {
             </motion.div>
           </div>
         )}
+
+        {/* Store Credentials Management Dialog */}
+        <Dialog open={isCredentialsDialogOpen} onOpenChange={setIsCredentialsDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {isEditingCredentials ? 'Edit' : 'Create'} Store Login Credentials
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-800 font-medium">
+                  Store: {selectedStoreForCredentials?.storeName}
+                </p>
+                <p className="text-xs text-blue-600">
+                  {isEditingCredentials ? 'Update login credentials for this store' : 'Create secure login credentials for this store partner'}
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="loginId">Login ID</Label>
+                <div className="flex space-x-2">
+                  <Input
+                    id="loginId"
+                    value={credentialsForm.loginId}
+                    onChange={(e) => setCredentialsForm({...credentialsForm, loginId: e.target.value})}
+                    placeholder="Enter unique login ID"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCredentialsForm({
+                      ...credentialsForm, 
+                      loginId: generateLoginId(selectedStoreForCredentials?.storeName || '')
+                    })}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Unique identifier for store login (e.g., mumbai_central_001)
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <div className="flex space-x-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={credentialsForm.password}
+                      onChange={(e) => setCredentialsForm({...credentialsForm, password: e.target.value})}
+                      placeholder="Enter secure password"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                    >
+                      <EyeOff className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCredentialsForm({
+                      ...credentialsForm, 
+                      password: generateSecurePassword(),
+                      confirmPassword: ''
+                    })}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Minimum 8 characters with letters, numbers, and symbols
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={credentialsForm.confirmPassword}
+                  onChange={(e) => setCredentialsForm({...credentialsForm, confirmPassword: e.target.value})}
+                  placeholder="Re-enter password to confirm"
+                />
+                {credentialsForm.password && credentialsForm.confirmPassword && 
+                 credentialsForm.password !== credentialsForm.confirmPassword && (
+                  <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
+                )}
+              </div>
+
+              <div className="bg-yellow-50 p-3 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <Key className="w-4 h-4 text-yellow-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">Security Note</p>
+                    <p className="text-xs text-yellow-700">
+                      Store these credentials securely. Share them with the store partner through a secure channel.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={() => setIsCredentialsDialogOpen(false)} 
+                  variant="outline" 
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={saveStoreCredentials} 
+                  className="flex-1 bg-blue-500 hover:bg-blue-600"
+                  disabled={!credentialsForm.loginId || !credentialsForm.password || 
+                           credentialsForm.password !== credentialsForm.confirmPassword}
+                >
+                  {isEditingCredentials ? 'Update' : 'Create'} Credentials
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Store Confirmation Dialog */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
