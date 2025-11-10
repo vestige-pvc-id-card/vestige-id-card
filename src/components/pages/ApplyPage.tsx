@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
+import { Separator } from '@/components/ui/separator';
 import { Image } from '@/components/ui/image';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Upload, CheckCircle, RotateCcw } from 'lucide-react';
+import { Upload, CheckCircle, RotateCcw, Edit, User, Phone, MapPin, Building2, Camera } from 'lucide-react';
 
 interface FormData {
   customerName: string;
@@ -27,6 +27,8 @@ export default function ApplyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string>('');
+  const [showSummary, setShowSummary] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<Stores | null>(null);
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>();
 
@@ -60,6 +62,15 @@ export default function ApplyPage() {
   };
 
   const onSubmit = async (data: FormData) => {
+    if (!showSummary) {
+      // First submission - show summary for review
+      const store = stores.find(s => s._id === data.storeId);
+      setSelectedStore(store || null);
+      setShowSummary(true);
+      return;
+    }
+
+    // Second submission - actually submit the form
     setIsSubmitting(true);
     try {
       const orderData: IDCardOrders = {
@@ -79,6 +90,10 @@ export default function ApplyPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEditForm = () => {
+    setShowSummary(false);
   };
 
   if (isSubmitted) {
@@ -132,6 +147,8 @@ export default function ApplyPage() {
           transition={{ delay: 0.2, duration: 0.5 }}
           className="w-full"
         >
+          {!showSummary ? (
+            // Application Form
             <Card>
               <CardHeader>
                 <CardTitle className="font-heading text-foreground">Application Details</CardTitle>
@@ -257,14 +274,143 @@ export default function ApplyPage() {
 
                   <Button
                     type="submit"
-                    disabled={isSubmitting}
                     className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12"
                   >
-                    {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                    Review Application
                   </Button>
                 </form>
               </CardContent>
             </Card>
+          ) : (
+            // Summary Preview
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-heading text-foreground flex items-center justify-between">
+                  Review Your Application
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditForm}
+                    className="flex items-center gap-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Personal Information Summary */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-heading text-foreground">Personal Information</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <User className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-paragraph text-gray-600">Full Name</p>
+                        <p className="font-heading text-foreground">{watch('customerName')}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <Building2 className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-paragraph text-gray-600">Vestige ID</p>
+                        <p className="font-heading text-foreground">{watch('vestigeId')}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <Phone className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-paragraph text-gray-600">Mobile Number</p>
+                        <p className="font-heading text-foreground">{watch('mobileNumber')}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <MapPin className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-paragraph text-gray-600">Selected Store</p>
+                        <p className="font-heading text-foreground">
+                          {selectedStore ? `${selectedStore.storeName} - ${selectedStore.storeCity}` : 'Not selected'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <MapPin className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
+                    <div className="flex-1">
+                      <p className="text-sm font-paragraph text-gray-600">Address</p>
+                      <p className="font-paragraph text-foreground leading-relaxed">{watch('customerAddress')}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Photo Preview */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-heading text-foreground">Uploaded Photo</h3>
+                  
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg flex-1">
+                      <Camera className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-paragraph text-gray-600">Profile Photo</p>
+                        <p className="font-paragraph text-foreground">
+                          {photoPreview ? 'Photo uploaded successfully' : 'No photo uploaded'}
+                        </p>
+                      </div>
+                      {photoPreview && (
+                        <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-gray-200">
+                          <Image 
+                            src={photoPreview} 
+                            alt="Profile photo preview" 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Confirmation and Submit */}
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-heading text-foreground mb-2">Next Steps</h4>
+                    <p className="font-paragraph text-foreground/80 text-sm leading-relaxed">
+                      After confirming your details, you will receive payment instructions via WhatsApp. 
+                      Your ID card will be processed once payment is confirmed.
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleEditForm}
+                      className="flex-1"
+                    >
+                      Back to Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleSubmit(onSubmit)}
+                      disabled={isSubmitting}
+                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {isSubmitting ? 'Submitting...' : 'Confirm & Submit'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           </motion.div>
       </div>
     </div>
