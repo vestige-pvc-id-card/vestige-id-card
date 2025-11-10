@@ -84,10 +84,29 @@ export default function PaymentPage({ orderId: propOrderId }: PaymentPageProps) 
   }, [orderId]);
 
   const loadRazorpayScript = () => {
+    // Check if Razorpay is already loaded
+    if (window.Razorpay) {
+      setRazorpayLoaded(true);
+      return;
+    }
+
+    // Check if script is already being loaded
+    const existingScript = document.querySelector('script[src*="razorpay"]');
+    if (existingScript) {
+      existingScript.addEventListener('load', () => setRazorpayLoaded(true));
+      return;
+    }
+
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => setRazorpayLoaded(true);
-    script.onerror = () => console.error('Failed to load Razorpay script');
+    script.onload = () => {
+      console.log('Razorpay script loaded successfully');
+      setRazorpayLoaded(true);
+    };
+    script.onerror = (error) => {
+      console.error('Failed to load Razorpay script:', error);
+      alert('Failed to load payment system. Please check your internet connection and try again.');
+    };
     document.body.appendChild(script);
   };
 
@@ -156,8 +175,18 @@ Thank you for choosing Vestige!`;
   };
 
   const handlePayment = async () => {
-    if (!razorpayLoaded || !order) {
-      alert('Payment system is loading. Please try again.');
+    if (!razorpayLoaded) {
+      alert('Payment system is still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    if (!order) {
+      alert('Order information is missing. Please go back and try again.');
+      return;
+    }
+
+    if (!window.Razorpay) {
+      alert('Payment system failed to load. Please refresh the page and try again.');
       return;
     }
 
@@ -197,6 +226,7 @@ Thank you for choosing Vestige!`;
 
           } catch (error) {
             console.error('Error processing payment confirmation:', error);
+            alert('Payment was successful but there was an issue updating your order. Please contact support with your payment ID: ' + (response.razorpay_payment_id || paymentId));
             setPaymentStatus('failed');
           }
         },
@@ -210,7 +240,7 @@ Thank you for choosing Vestige!`;
         },
         modal: {
           ondismiss: () => {
-            console.log('Payment modal dismissed');
+            console.log('Payment modal dismissed by user');
             setIsProcessingPayment(false);
             setPaymentStatus('pending');
           }
@@ -227,15 +257,17 @@ Thank you for choosing Vestige!`;
       
       razorpay.on('payment.failed', (response: any) => {
         console.error('Payment failed:', response.error);
-        alert(`Payment failed: ${response.error.description || 'Unknown error'}`);
+        const errorMessage = response.error?.description || response.error?.reason || 'Payment failed due to an unknown error';
+        alert(`Payment failed: ${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
         setPaymentStatus('failed');
         setIsProcessingPayment(false);
       });
 
+      console.log('Opening Razorpay payment modal...');
       razorpay.open();
     } catch (error) {
       console.error('Error initiating payment:', error);
-      alert('Failed to initiate payment. Please try again.');
+      alert('Failed to initiate payment. Please check your internet connection and try again.');
       setPaymentStatus('failed');
       setIsProcessingPayment(false);
     }
@@ -496,14 +528,30 @@ Thank you for choosing Vestige!`;
 
                 <Separator />
 
+                {/* Debug Information (only in development) */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="space-y-2 p-3 bg-gray-100 rounded-lg text-xs">
+                    <p><strong>Debug Info:</strong></p>
+                    <p>Razorpay Loaded: {razorpayLoaded ? '✅' : '❌'}</p>
+                    <p>Order ID: {orderId}</p>
+                    <p>Payment Status: {paymentStatus}</p>
+                    <p>Processing: {isProcessingPayment ? 'Yes' : 'No'}</p>
+                  </div>
+                )}
+
                 {/* Payment Button */}
                 <div className="space-y-4">
                   <Button
                     onClick={handlePayment}
                     disabled={isProcessingPayment || !razorpayLoaded}
-                    className="w-full bg-brand-green text-white hover:bg-brand-green/90 h-12 text-lg"
+                    className="w-full bg-brand-green text-white hover:bg-brand-green/90 h-12 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isProcessingPayment ? (
+                    {!razorpayLoaded ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Loading Payment System...
+                      </>
+                    ) : isProcessingPayment ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                         Processing...
