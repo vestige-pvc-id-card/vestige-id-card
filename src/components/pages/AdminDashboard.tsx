@@ -1250,11 +1250,8 @@ export default function AdminDashboard() {
                 </Card>
               </div>
             </TabsContent>
-          </Tabs>
-        </motion.div>
 
-        {/* WhatsApp Tab Content */}
-        <TabsContent value="whatsapp">
+            <TabsContent value="whatsapp">
           <div className="space-y-6">
             {/* WhatsApp Automation Center */}
             <Card className="bg-white shadow-sm">
@@ -1394,6 +1391,8 @@ export default function AdminDashboard() {
             </Card>
           </div>
         </TabsContent>
+          </Tabs>
+        </motion.div>
 
         {/* Order Details Modal */}
         {selectedOrder && (
