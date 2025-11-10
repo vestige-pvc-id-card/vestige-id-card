@@ -10,9 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer } from 'lucide-react';
+import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer, Trash2 } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 
 export default function AdminDashboard() {
@@ -23,6 +24,8 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<IDCardOrders | null>(null);
   const [isAddStoreOpen, setIsAddStoreOpen] = useState(false);
+  const [storeToDelete, setStoreToDelete] = useState<Stores | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newStore, setNewStore] = useState({
     storeName: '',
     storeAddress: '',
@@ -175,6 +178,24 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error adding store:', error);
     }
+  };
+
+  const deleteStore = async () => {
+    if (!storeToDelete) return;
+    
+    try {
+      await BaseCrudService.delete('stores', storeToDelete._id);
+      setStores(stores.filter(store => store._id !== storeToDelete._id));
+      setStoreToDelete(null);
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      console.error('Error deleting store:', error);
+    }
+  };
+
+  const handleDeleteStore = (store: Stores) => {
+    setStoreToDelete(store);
+    setIsDeleteDialogOpen(true);
   };
 
   const sendWhatsAppNotification = async (orderId: string, message: string) => {
@@ -757,6 +778,14 @@ export default function AdminDashboard() {
                                     onClick={() => sendWhatsAppNotification(store._id, `New batch assigned to ${store.storeName}`)}
                                   >
                                     <MessageSquare className="w-4 h-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleDeleteStore(store)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
                                   </Button>
                                 </div>
                               </TableCell>
@@ -1453,6 +1482,29 @@ export default function AdminDashboard() {
             </motion.div>
           </div>
         )}
+
+        {/* Delete Store Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Store Partner</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{storeToDelete?.storeName}"? This action cannot be undone and will permanently remove the store partner from the system.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={deleteStore}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Delete Store
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
