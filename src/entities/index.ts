@@ -29,6 +29,27 @@ export interface IDCardOrders {
 
 
 /**
+ * Collection ID: storecredentials
+ * Interface for StoreCredentials
+ */
+export interface StoreCredentials {
+  _id: string;
+  _createdDate?: Date;
+  _updatedDate?: Date;
+  /** @wixFieldType text */
+  username?: string;
+  /** @wixFieldType text */
+  password?: string;
+  /** @wixFieldType text */
+  storeId?: string;
+  /** @wixFieldType datetime */
+  lastLoginDate?: Date | string;
+  /** @wixFieldType boolean */
+  isActive?: boolean;
+}
+
+
+/**
  * Collection ID: stores
  * Interface for Stores
  */

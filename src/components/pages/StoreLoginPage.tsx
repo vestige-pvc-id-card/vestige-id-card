@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Store, Lock, User, AlertCircle } from 'lucide-react';
 import { Image } from '@/components/ui/image';
+import { BaseCrudService } from '@/integrations';
+import { StoreCredentials } from '@/entities';
 
 export default function StoreLoginPage() {
   const navigate = useNavigate();
@@ -35,20 +37,33 @@ export default function StoreLoginPage() {
     setError('');
 
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Validate credentials against the database
+      const { items } = await BaseCrudService.getAll<StoreCredentials>('storecredentials');
+      
+      // Find matching credentials
+      const validCredentials = items.find(cred => 
+        cred.username === formData.loginId && 
+        cred.password === formData.password &&
+        cred.isActive === true
+      );
 
-      // In a real implementation, this would validate against the store credentials
-      // created in the Admin Dashboard. For now, we'll use demo credentials.
-      if (formData.loginId === 'store001' && formData.password === 'store123') {
+      if (validCredentials) {
+        // Update last login date
+        await BaseCrudService.update('storecredentials', {
+          ...validCredentials,
+          lastLoginDate: new Date()
+        });
+
         // Successful login
         localStorage.setItem('storeAuth', 'true');
         localStorage.setItem('storeLoginId', formData.loginId);
+        localStorage.setItem('storeId', validCredentials.storeId || '');
         navigate('/store');
       } else {
         setError('Invalid login credentials. Please check your Store ID and password.');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -160,7 +175,7 @@ export default function StoreLoginPage() {
 
             <div className="text-center pt-4 border-t border-gray-100">
               <p className="text-xs text-gray-500">
-                Demo Credentials: store001 / store123
+                Contact admin for login credentials
               </p>
             </div>
           </CardContent>

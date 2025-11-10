@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { BaseCrudService } from '@/integrations';
-import { IDCardOrders, Stores } from '@/entities';
+import { IDCardOrders, Stores, StoreCredentials } from '@/entities';
 import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer, Trash2, Key, Copy, RefreshCw, EyeOff } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 
@@ -148,27 +148,14 @@ export default function AdminDashboard() {
   };
 
   const loadStoreCredentials = async () => {
-    // Mock store credentials data - in real app, load from secure CMS collection
-    setStoreCredentials([
-      {
-        storeId: 'store-001',
-        storeName: 'Vestige Mumbai Central',
-        loginId: 'mumbai_central_001',
-        password: 'SecurePass123!',
-        createdDate: '2024-01-15',
-        lastUpdated: '2024-01-15',
-        isActive: true
-      },
-      {
-        storeId: 'store-002',
-        storeName: 'Vestige Delhi Central',
-        loginId: 'delhi_central_002',
-        password: 'StorePass456@',
-        createdDate: '2024-02-01',
-        lastUpdated: '2024-02-01',
-        isActive: true
-      }
-    ]);
+    try {
+      const { items } = await BaseCrudService.getAll<StoreCredentials>('storecredentials');
+      setStoreCredentials(items);
+    } catch (error) {
+      console.error('Error loading store credentials:', error);
+      // Initialize with empty array if loading fails
+      setStoreCredentials([]);
+    }
   };
 
   const filterOrders = () => {
@@ -285,9 +272,9 @@ export default function AdminDashboard() {
       const existingCredentials = storeCredentials.find(cred => cred.storeId === store._id);
       if (existingCredentials) {
         setCredentialsForm({
-          loginId: existingCredentials.loginId,
-          password: existingCredentials.password,
-          confirmPassword: existingCredentials.password
+          loginId: existingCredentials.username || '',
+          password: existingCredentials.password || '',
+          confirmPassword: existingCredentials.password || ''
         });
       }
     } else {
@@ -315,24 +302,33 @@ export default function AdminDashboard() {
     }
 
     try {
-      const newCredentials = {
+      const credentialData: StoreCredentials = {
+        _id: crypto.randomUUID(),
         storeId: selectedStoreForCredentials._id,
-        storeName: selectedStoreForCredentials.storeName,
-        loginId: credentialsForm.loginId,
+        username: credentialsForm.loginId,
         password: credentialsForm.password,
-        createdDate: isEditingCredentials ? 
-          storeCredentials.find(c => c.storeId === selectedStoreForCredentials._id)?.createdDate || new Date().toISOString().split('T')[0] :
-          new Date().toISOString().split('T')[0],
-        lastUpdated: new Date().toISOString().split('T')[0],
+        lastLoginDate: undefined,
         isActive: true
       };
 
       if (isEditingCredentials) {
-        setStoreCredentials(storeCredentials.map(cred => 
-          cred.storeId === selectedStoreForCredentials._id ? newCredentials : cred
-        ));
+        // Find existing credential and update it
+        const existingCredential = storeCredentials.find(c => c.storeId === selectedStoreForCredentials._id);
+        if (existingCredential) {
+          const updatedCredential = {
+            ...existingCredential,
+            username: credentialsForm.loginId,
+            password: credentialsForm.password
+          };
+          await BaseCrudService.update('storecredentials', updatedCredential);
+          setStoreCredentials(storeCredentials.map(cred => 
+            cred.storeId === selectedStoreForCredentials._id ? updatedCredential : cred
+          ));
+        }
       } else {
-        setStoreCredentials([...storeCredentials.filter(c => c.storeId !== selectedStoreForCredentials._id), newCredentials]);
+        // Create new credential
+        await BaseCrudService.create('storecredentials', credentialData);
+        setStoreCredentials([...storeCredentials.filter(c => c.storeId !== selectedStoreForCredentials._id), credentialData]);
       }
 
       setIsCredentialsDialogOpen(false);
@@ -347,14 +343,28 @@ export default function AdminDashboard() {
     }
   };
 
-  const resetStorePassword = (storeId: string) => {
-    const newPassword = generateSecurePassword();
-    setStoreCredentials(storeCredentials.map(cred => 
-      cred.storeId === storeId ? 
-        { ...cred, password: newPassword, lastUpdated: new Date().toISOString().split('T')[0] } : 
-        cred
-    ));
-    alert(`Password reset successfully! New password: ${newPassword}`);
+  const resetStorePassword = async (storeId: string) => {
+    try {
+      const newPassword = generateSecurePassword();
+      const existingCredential = storeCredentials.find(cred => cred.storeId === storeId);
+      
+      if (existingCredential) {
+        const updatedCredential = {
+          ...existingCredential,
+          password: newPassword
+        };
+        
+        await BaseCrudService.update('storecredentials', updatedCredential);
+        setStoreCredentials(storeCredentials.map(cred => 
+          cred.storeId === storeId ? updatedCredential : cred
+        ));
+        
+        alert(`Password reset successfully! New password: ${newPassword}`);
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('Failed to reset password. Please try again.');
+    }
   };
 
   const copyToClipboard = (text: string, type: string) => {
@@ -976,11 +986,11 @@ export default function AdminDashboard() {
                                     <div className="space-y-1">
                                       <div className="flex items-center space-x-2">
                                         <span className="text-xs text-slate-600">ID:</span>
-                                        <code className="text-xs bg-slate-100 px-1 rounded">{credentials.loginId}</code>
+                                        <code className="text-xs bg-slate-100 px-1 rounded">{credentials.username}</code>
                                         <Button
                                           size="sm"
                                           variant="ghost"
-                                          onClick={() => copyToClipboard(credentials.loginId, 'Login ID')}
+                                          onClick={() => copyToClipboard(credentials.username || '', 'Login ID')}
                                           className="h-4 w-4 p-0"
                                         >
                                           <Copy className="w-3 h-3" />
@@ -994,7 +1004,7 @@ export default function AdminDashboard() {
                                         <Button
                                           size="sm"
                                           variant="ghost"
-                                          onClick={() => copyToClipboard(credentials.password, 'Password')}
+                                          onClick={() => copyToClipboard(credentials.password || '', 'Password')}
                                           className="h-4 w-4 p-0"
                                         >
                                           <Copy className="w-3 h-3" />
