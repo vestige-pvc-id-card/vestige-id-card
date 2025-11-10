@@ -26,6 +26,7 @@ export default function AdminDashboard() {
   const [isAddStoreOpen, setIsAddStoreOpen] = useState(false);
   const [storeToDelete, setStoreToDelete] = useState<Stores | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isClearAllDialogOpen, setIsClearAllDialogOpen] = useState(false);
   const [newStore, setNewStore] = useState({
     storeName: '',
     storeAddress: '',
@@ -233,6 +234,19 @@ export default function AdminDashboard() {
   const handleDeleteStore = (store: Stores) => {
     setStoreToDelete(store);
     setIsDeleteDialogOpen(true);
+  };
+
+  const clearAllStores = async () => {
+    try {
+      // Delete all stores one by one
+      for (const store of stores) {
+        await BaseCrudService.delete('stores', store._id);
+      }
+      setStores([]);
+      setIsClearAllDialogOpen(false);
+    } catch (error) {
+      console.error('Error clearing all stores:', error);
+    }
   };
 
   // Store credentials management functions
@@ -807,6 +821,33 @@ export default function AdminDashboard() {
                         <EyeOff className="w-4 h-4" />
                         <span>{showPassword ? 'Hide' : 'Show'} Passwords</span>
                       </Button>
+                      {stores.length > 0 && (
+                        <AlertDialog open={isClearAllDialogOpen} onOpenChange={setIsClearAllDialogOpen}>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Clear All Stores
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Clear All Stores</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete all {stores.length} stores? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={clearAllStores}
+                                className="bg-red-500 hover:bg-red-600"
+                              >
+                                Delete All Stores
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                       <Dialog open={isAddStoreOpen} onOpenChange={setIsAddStoreOpen}>
                         <DialogTrigger asChild>
                           <Button className="bg-blue-500 hover:bg-blue-600 text-white">
