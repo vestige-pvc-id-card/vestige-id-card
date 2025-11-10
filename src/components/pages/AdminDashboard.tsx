@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores, StoreCredentials } from '@/entities';
-import { clearAllStores } from '@/lib/clear-stores';
+import { clearAllOrders, clearAllData } from '@/lib/clear-stores';
 import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer, Trash2, Key, Copy, RefreshCw, EyeOff } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 
@@ -45,9 +45,10 @@ export default function AdminDashboard() {
   const [selectedPayoutRequest, setSelectedPayoutRequest] = useState<any>(null);
   const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
 
-  // Auto-clear stores state
+  // Auto-clear data state
   const [isAutoClearing, setIsAutoClearing] = useState(false);
   const [autoClearComplete, setAutoClearComplete] = useState(false);
+  const [clearType, setClearType] = useState<'orders' | 'all'>('orders');
 
   // Store credentials management state
   const [storeCredentials, setStoreCredentials] = useState<any[]>([]);
@@ -69,22 +70,23 @@ export default function AdminDashboard() {
       return;
     }
     
-    // Auto-clear stores on component mount
-    autoClearStores();
+    // Auto-clear orders on component mount
+    autoClearOrders();
   }, [navigate]);
 
-  const autoClearStores = async () => {
+  const autoClearOrders = async () => {
     setIsAutoClearing(true);
+    setClearType('orders');
     try {
-      const result = await clearAllStores();
-      console.log('🔄 Auto-clear result:', result.message);
+      const result = await clearAllOrders();
+      console.log('🔄 Auto-clear orders result:', result.message);
       setAutoClearComplete(true);
       // Load fresh data after clearing
       loadData();
       loadPayoutData();
       loadStoreCredentials();
     } catch (error) {
-      console.error('❌ Auto-clear failed:', error);
+      console.error('❌ Auto-clear orders failed:', error);
     } finally {
       setIsAutoClearing(false);
     }
@@ -198,9 +200,25 @@ export default function AdminDashboard() {
     setIsDeleteDialogOpen(true);
   };
 
+  const clearAllOrdersHandler = async () => {
+    try {
+      const result = await clearAllOrders();
+      if (result.success) {
+        setOrders([]);
+        console.log(result.message);
+        // Reload data to ensure UI is in sync
+        loadData();
+      } else {
+        console.error('Failed to clear orders:', result.message);
+      }
+    } catch (error) {
+      console.error('Error clearing all orders:', error);
+    }
+  };
+
   const clearAllStoresHandler = async () => {
     try {
-      const result = await clearAllStores();
+      const result = await clearAllData();
       if (result.success) {
         setStores([]);
         setStoreCredentials([]);
@@ -537,8 +555,15 @@ export default function AdminDashboard() {
                       <>
                         <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
                         <div>
-                          <p className="font-heading text-orange-800">Clearing existing stores...</p>
-                          <p className="text-sm text-orange-600">Removing all stores to ensure clean database</p>
+                          <p className="font-heading text-orange-800">
+                            {clearType === 'orders' ? 'Clearing existing orders...' : 'Clearing all data...'}
+                          </p>
+                          <p className="text-sm text-orange-600">
+                            {clearType === 'orders' 
+                              ? 'Removing all orders to ensure clean database' 
+                              : 'Removing all orders and stores to ensure clean database'
+                            }
+                          </p>
                         </div>
                       </>
                     ) : (
@@ -546,7 +571,12 @@ export default function AdminDashboard() {
                         <CheckCircle className="w-6 h-6 text-green-600" />
                         <div>
                           <p className="font-heading text-green-800">Database cleared successfully!</p>
-                          <p className="text-sm text-green-600">All existing stores have been removed. Ready to add new stores.</p>
+                          <p className="text-sm text-green-600">
+                            {clearType === 'orders' 
+                              ? 'All existing orders have been removed. Ready to process new orders.' 
+                              : 'All existing data has been removed. Ready to add new data.'
+                            }
+                          </p>
                         </div>
                       </>
                     )}
@@ -720,6 +750,17 @@ export default function AdminDashboard() {
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Bulk WhatsApp
                       </Button>
+                      {orders.length > 0 && (
+                        <Button 
+                          onClick={clearAllOrdersHandler}
+                          variant="outline" 
+                          size="sm" 
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Clear All Orders
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
