@@ -45,7 +45,10 @@ export default function ApplyPage() {
   const loadStores = async () => {
     try {
       const { items } = await BaseCrudService.getAll<Stores>('stores');
-      setStores(items.filter(store => store.isActive));
+      // Only show active stores for customer selection
+      const activeStores = items.filter(store => store.isActive);
+      setStores(activeStores);
+      console.log(`Loaded ${activeStores.length} active stores for customer selection`);
     } catch (error) {
       console.error('Error loading stores:', error);
     }

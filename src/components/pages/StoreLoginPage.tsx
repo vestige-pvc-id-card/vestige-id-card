@@ -38,7 +38,8 @@ export default function StoreLoginPage() {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Demo credentials for store
+      // In a real implementation, this would validate against the store credentials
+      // created in the Admin Dashboard. For now, we'll use demo credentials.
       if (formData.loginId === 'store001' && formData.password === 'store123') {
         // Successful login
         localStorage.setItem('storeAuth', 'true');
