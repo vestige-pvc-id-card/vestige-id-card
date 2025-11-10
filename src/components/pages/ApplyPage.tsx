@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Image } from '@/components/ui/image';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Upload, CheckCircle, RotateCcw, Edit, User, Phone, MapPin, Building2, Camera, CreditCard, AlertCircle } from 'lucide-react';
+import { Upload, CheckCircle, RotateCcw, Edit, User, Phone, MapPin, Building2, Camera, CreditCard, AlertCircle, FileImage } from 'lucide-react';
 
 interface FormData {
   customerName: string;
@@ -30,6 +30,9 @@ export default function ApplyPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [selectedStore, setSelectedStore] = useState<Stores | null>(null);
   const [submitError, setSubmitError] = useState<string>('');
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [originalFileSize, setOriginalFileSize] = useState<number>(0);
+  const [compressedFileSize, setCompressedFileSize] = useState<number>(0);
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>();
 
@@ -49,16 +52,113 @@ export default function ApplyPage() {
     }
   };
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setPhotoPreview(result);
-        setValue('customerPhoto', result);
+  // Image compression utility function
+  const compressImage = (file: File, maxWidth: number = 800, maxHeight: number = 800, quality: number = 0.8): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new window.Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions while maintaining aspect ratio
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Convert to base64 with compression
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        
+        // Calculate compressed size
+        const compressedSize = Math.round((compressedDataUrl.length * 3) / 4);
+        setCompressedFileSize(compressedSize);
+        
+        resolve(compressedDataUrl);
       };
-      reader.readAsDataURL(file);
+      
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // Format file size for display
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      setSubmitError('Please upload a valid image file (JPG, PNG, etc.)');
+      return;
+    }
+
+    // Set original file size
+    setOriginalFileSize(file.size);
+
+    // Check if file is too large (>10MB)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxFileSize) {
+      setSubmitError('File size is too large. Please choose an image smaller than 10MB.');
+      return;
+    }
+
+    setIsCompressing(true);
+    setSubmitError('');
+
+    try {
+      // Compress the image
+      const compressedDataUrl = await compressImage(file, 800, 800, 0.8);
+      
+      // Additional compression if still too large
+      let finalDataUrl = compressedDataUrl;
+      let quality = 0.8;
+      
+      // Keep compressing until under 500KB or quality gets too low
+      while (finalDataUrl.length > 500 * 1024 && quality > 0.3) {
+        quality -= 0.1;
+        finalDataUrl = await compressImage(file, 800, 800, quality);
+      }
+      
+      // Final size check
+      const finalSize = Math.round((finalDataUrl.length * 3) / 4);
+      if (finalSize > 1024 * 1024) { // 1MB limit
+        setSubmitError('Unable to compress image sufficiently. Please choose a smaller image.');
+        setIsCompressing(false);
+        return;
+      }
+      
+      setPhotoPreview(finalDataUrl);
+      setValue('customerPhoto', finalDataUrl);
+      setCompressedFileSize(finalSize);
+      
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      setSubmitError('Error processing image. Please try a different image.');
+    } finally {
+      setIsCompressing(false);
     }
   };
 
@@ -77,6 +177,16 @@ export default function ApplyPage() {
         setSubmitError('Please upload your profile photo');
         return;
       }
+      
+      // Check payload size before proceeding
+      const estimatedPayloadSize = JSON.stringify(data).length;
+      console.log('Estimated payload size:', formatFileSize(estimatedPayloadSize));
+      
+      if (estimatedPayloadSize > 1024 * 1024) { // 1MB limit
+        setSubmitError('Form data is too large. Please use a smaller image.');
+        return;
+      }
+      
       setSelectedStore(store);
       setShowSummary(true);
       return;
@@ -91,17 +201,25 @@ export default function ApplyPage() {
         throw new Error('All fields are required. Please check your information.');
       }
 
+      // Final payload size check
       const orderData: IDCardOrders = {
         _id: crypto.randomUUID(),
-        customerName: data.customerName,
-        vestigeId: data.vestigeId,
-        mobileNumber: data.mobileNumber,
-        customerAddress: data.customerAddress,
+        customerName: data.customerName.trim(),
+        vestigeId: data.vestigeId.trim(),
+        mobileNumber: data.mobileNumber.trim(),
+        customerAddress: data.customerAddress.trim(),
         customerPhoto: data.customerPhoto,
         orderStatus: 'Pending'
       };
 
-      console.log('Creating order with data:', orderData);
+      const payloadSize = JSON.stringify(orderData).length;
+      console.log('Final payload size:', formatFileSize(payloadSize));
+      
+      if (payloadSize > 1024 * 1024) { // 1MB limit
+        throw new Error('Form data is too large. Please use a smaller image or reduce text length.');
+      }
+
+      console.log('Creating order with data:', { ...orderData, customerPhoto: '[IMAGE_DATA]' });
       
       // Create the order in the database
       await BaseCrudService.create('idcardorders', orderData);
@@ -117,7 +235,11 @@ export default function ApplyPage() {
       
     } catch (error) {
       console.error('Error submitting application:', error);
-      setSubmitError(error instanceof Error ? error.message : 'Failed to submit application. Please try again.');
+      if (error instanceof Error && error.message.includes('too large')) {
+        setSubmitError('Form data is too large. Please use a smaller image or reduce text length.');
+      } else {
+        setSubmitError(error instanceof Error ? error.message : 'Failed to submit application. Please try again.');
+      }
       setIsSubmitting(false);
     }
   };
@@ -125,6 +247,8 @@ export default function ApplyPage() {
   const handleEditForm = () => {
     setShowSummary(false);
     setSubmitError(''); // Clear any errors when going back to edit
+    setOriginalFileSize(0);
+    setCompressedFileSize(0);
   };
 
   if (isSubmitted) {
@@ -207,9 +331,13 @@ export default function ApplyPage() {
                       <Label htmlFor="customerName" className="font-paragraph">Full Name *</Label>
                       <Input
                         id="customerName"
-                        {...register('customerName', { required: 'Full name is required' })}
+                        {...register('customerName', { 
+                          required: 'Full name is required',
+                          maxLength: { value: 100, message: 'Name must be less than 100 characters' }
+                        })}
                         className="mt-1"
                         placeholder="Enter your full name"
+                        maxLength={100}
                       />
                       {errors.customerName && (
                         <p className="text-destructive text-sm mt-1">{errors.customerName.message}</p>
@@ -220,9 +348,13 @@ export default function ApplyPage() {
                       <Label htmlFor="vestigeId" className="font-paragraph">Vestige ID *</Label>
                       <Input
                         id="vestigeId"
-                        {...register('vestigeId', { required: 'Vestige ID is required' })}
+                        {...register('vestigeId', { 
+                          required: 'Vestige ID is required',
+                          maxLength: { value: 50, message: 'Vestige ID must be less than 50 characters' }
+                        })}
                         className="mt-1"
                         placeholder="Enter your Vestige ID"
+                        maxLength={50}
                       />
                       {errors.vestigeId && (
                         <p className="text-destructive text-sm mt-1">{errors.vestigeId.message}</p>
@@ -242,6 +374,7 @@ export default function ApplyPage() {
                         })}
                         className="mt-1"
                         placeholder="Enter your mobile number"
+                        maxLength={10}
                       />
                       {errors.mobileNumber && (
                         <p className="text-destructive text-sm mt-1">{errors.mobileNumber.message}</p>
@@ -252,14 +385,23 @@ export default function ApplyPage() {
                       <Label htmlFor="customerAddress" className="font-paragraph">Address *</Label>
                       <Textarea
                         id="customerAddress"
-                        {...register('customerAddress', { required: 'Address is required' })}
+                        {...register('customerAddress', { 
+                          required: 'Address is required',
+                          maxLength: { value: 500, message: 'Address must be less than 500 characters' }
+                        })}
                         className="mt-1"
                         placeholder="Enter your complete address"
                         rows={3}
+                        maxLength={500}
                       />
-                      {errors.customerAddress && (
-                        <p className="text-destructive text-sm mt-1">{errors.customerAddress.message}</p>
-                      )}
+                      <div className="flex justify-between items-center mt-1">
+                        {errors.customerAddress && (
+                          <p className="text-destructive text-sm">{errors.customerAddress.message}</p>
+                        )}
+                        <p className="text-xs text-gray-500 ml-auto">
+                          {watch('customerAddress')?.length || 0}/500 characters
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -269,7 +411,7 @@ export default function ApplyPage() {
                     
                     <div>
                       <Label className="font-paragraph">Profile Photo *</Label>
-                      <div className="mt-2 flex items-center space-x-4">
+                      <div className="mt-2 space-y-3">
                         <div className="flex-1">
                           <input
                             type="file"
@@ -278,21 +420,52 @@ export default function ApplyPage() {
                             className="hidden"
                             id="photo-upload"
                             required
+                            disabled={isCompressing}
                           />
                           <Label
                             htmlFor="photo-upload"
-                            className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary transition-colors"
+                            className={`flex items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                              isCompressing 
+                                ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
+                                : 'border-gray-300 hover:border-primary'
+                            }`}
                           >
-                            {photoPreview ? (
+                            {isCompressing ? (
+                              <div className="text-center">
+                                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                <span className="text-sm text-gray-500">Compressing image...</span>
+                              </div>
+                            ) : photoPreview ? (
                               <Image src={photoPreview} alt="Photo preview" className="h-full w-full object-cover rounded-lg" />
                             ) : (
                               <div className="text-center">
                                 <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                                 <span className="text-sm text-gray-500">Click to upload photo</span>
+                                <span className="text-xs text-gray-400 block mt-1">Max 10MB • Will be compressed automatically</span>
                               </div>
                             )}
                           </Label>
                         </div>
+                        
+                        {/* File size information */}
+                        {(originalFileSize > 0 || compressedFileSize > 0) && (
+                          <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                            <div className="flex items-center gap-2">
+                              <FileImage className="w-4 h-4" />
+                              <span>Image processed</span>
+                            </div>
+                            <div className="flex gap-4">
+                              {originalFileSize > 0 && (
+                                <span>Original: {formatFileSize(originalFileSize)}</span>
+                              )}
+                              {compressedFileSize > 0 && (
+                                <span className="text-green-600 font-medium">
+                                  Compressed: {formatFileSize(compressedFileSize)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       {!photoPreview && submitError && (
                         <p className="text-destructive text-sm mt-1">Profile photo is required</p>
@@ -336,8 +509,9 @@ export default function ApplyPage() {
                   <Button
                     type="submit"
                     className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12"
+                    disabled={isCompressing}
                   >
-                    Review Application
+                    {isCompressing ? 'Processing Image...' : 'Review Application'}
                   </Button>
                 </form>
               </CardContent>
@@ -424,6 +598,11 @@ export default function ApplyPage() {
                         <p className="font-paragraph text-foreground">
                           {photoPreview ? 'Photo uploaded successfully' : 'No photo uploaded'}
                         </p>
+                        {compressedFileSize > 0 && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Compressed to {formatFileSize(compressedFileSize)}
+                          </p>
+                        )}
                       </div>
                       {photoPreview && (
                         <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-gray-200">
