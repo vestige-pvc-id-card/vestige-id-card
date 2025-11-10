@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Image } from '@/components/ui/image';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Upload, CreditCard, CheckCircle, RotateCcw } from 'lucide-react';
+import { Upload, CheckCircle, RotateCcw } from 'lucide-react';
 
 interface FormData {
   customerName: string;
@@ -126,14 +126,12 @@ export default function ApplyPage() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Application Form */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="lg:col-span-2"
-          >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="w-full"
+        >
             <Card>
               <CardHeader>
                 <CardTitle className="font-heading text-foreground">Application Details</CardTitle>
@@ -268,111 +266,6 @@ export default function ApplyPage() {
               </CardContent>
             </Card>
           </motion.div>
-
-          {/* ID Card Preview */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-            className="lg:col-span-1"
-          >
-            <Card className="sticky top-24 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="font-heading text-foreground text-lg">Preview Your ID Card</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <Tabs defaultValue="front" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="front" className="font-medium">Front Side</TabsTrigger>
-                    <TabsTrigger value="back" className="font-medium">Back Side</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="front" className="mt-0">
-                    <div className="relative w-full aspect-[1.6/1] rounded-xl overflow-hidden shadow-md border border-gray-200">
-                      <Image
-                        src="https://static.wixstatic.com/media/1878e6_654d4ab61f714e48afd6621b4605e3ef~mv2.jpg"
-                        alt="ID Card Front Template"
-                        className="w-full h-full object-cover"
-                      />
-                      
-                      <div className="absolute inset-0">
-                        {/* Photo placement */}
-                        <div className="absolute top-[24%] left-[7%] w-[26%] h-[46%] rounded-sm overflow-hidden">
-                          {photoPreview ? (
-                            <Image 
-                              src={photoPreview} 
-                              alt="Customer Photo" 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-white/90 border-2 border-dashed border-gray-400 flex items-center justify-center">
-                              <span className="text-xs text-gray-500 font-medium">PHOTO</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Vestige ID */}
-                        <div className="absolute top-[31%] left-[44%] text-black font-bold text-sm tracking-wide">
-                          {watch('vestigeId') || 'VESTIGE ID'}
-                        </div>
-                        
-                        {/* Name field */}
-                        <div className="absolute top-[51%] left-[7%] right-[7%]">
-                          <div className="text-black text-sm font-semibold tracking-wide">
-                            {watch('customerName') || 'FULL NAME'}
-                          </div>
-                        </div>
-                        
-                        {/* Address field */}
-                        <div className="absolute top-[61%] left-[7%] right-[7%]">
-                          <div className="text-black text-xs leading-relaxed">
-                            {watch('customerAddress') ? (
-                              <div className="space-y-0.5">
-                                {watch('customerAddress').split(',').slice(0, 2).map((line, index) => (
-                                  <div key={index} className="truncate">
-                                    {line.trim()}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="space-y-0.5">
-                                <div className="text-gray-400">ADDRESS LINE 1</div>
-                                <div className="text-gray-400">ADDRESS LINE 2</div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="back" className="mt-0">
-                    <div className="relative w-full aspect-[1.6/1] rounded-xl overflow-hidden shadow-md border border-gray-200">
-                      <Image
-                        src="https://static.wixstatic.com/media/1878e6_4375026adec345feb75c6ec63e03c246~mv2.jpg"
-                        alt="ID Card Back Template"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-                
-                {/* Payment Info - Simplified */}
-                <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                  <div className="flex items-start space-x-3">
-                    <CreditCard className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h4 className="font-heading text-sm text-foreground mb-1">Next Steps</h4>
-                      <p className="text-xs font-paragraph text-foreground/70 leading-relaxed">
-                        Payment details will be sent via WhatsApp after submission.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
       </div>
     </div>
   );
