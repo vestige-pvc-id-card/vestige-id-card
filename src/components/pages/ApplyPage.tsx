@@ -276,30 +276,28 @@ export default function ApplyPage() {
             transition={{ delay: 0.4, duration: 0.5 }}
             className="lg:col-span-1"
           >
-            <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle className="font-heading text-foreground">ID Card Preview</CardTitle>
+            <Card className="sticky top-24 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="font-heading text-foreground text-lg">Preview Your ID Card</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
                 <Tabs defaultValue="front" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="front">Front</TabsTrigger>
-                    <TabsTrigger value="back">Back</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="front" className="font-medium">Front Side</TabsTrigger>
+                    <TabsTrigger value="back" className="font-medium">Back Side</TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="front" className="mt-4">
-                    <div className="relative w-full aspect-[1.6/1] rounded-lg overflow-hidden">
-                      {/* Front template background */}
+                  <TabsContent value="front" className="mt-0">
+                    <div className="relative w-full aspect-[1.6/1] rounded-xl overflow-hidden shadow-md border border-gray-200">
                       <Image
                         src="https://static.wixstatic.com/media/1878e6_654d4ab61f714e48afd6621b4605e3ef~mv2.jpg"
                         alt="ID Card Front Template"
                         className="w-full h-full object-cover"
                       />
                       
-                      {/* Overlay content positioned according to template */}
                       <div className="absolute inset-0">
-                        {/* Photo placement - positioned in the photo area of the template */}
-                        <div className="absolute top-[25%] left-[8%] w-[25%] h-[45%]">
+                        {/* Photo placement */}
+                        <div className="absolute top-[24%] left-[7%] w-[26%] h-[46%] rounded-sm overflow-hidden">
                           {photoPreview ? (
                             <Image 
                               src={photoPreview} 
@@ -307,40 +305,39 @@ export default function ApplyPage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-white/80 flex items-center justify-center text-xs text-gray-600">
-                              PHOTO
+                            <div className="w-full h-full bg-white/90 border-2 border-dashed border-gray-400 flex items-center justify-center">
+                              <span className="text-xs text-gray-500 font-medium">PHOTO</span>
                             </div>
                           )}
                         </div>
                         
-                        {/* Distributor ID - positioned in the ID field */}
-                        <div className="absolute top-[32%] left-[45%] text-black font-bold text-sm">
-                          {watch('vestigeId') || '71115492'}
+                        {/* Vestige ID */}
+                        <div className="absolute top-[31%] left-[44%] text-black font-bold text-sm tracking-wide">
+                          {watch('vestigeId') || 'VESTIGE ID'}
                         </div>
                         
-                        {/* Name field - positioned in the name area */}
-                        <div className="absolute top-[52%] left-[8%] right-[8%]">
-                          <div className="text-black text-sm font-medium border-b border-black/30 pb-1">
-                            {watch('customerName') || ''}
+                        {/* Name field */}
+                        <div className="absolute top-[51%] left-[7%] right-[7%]">
+                          <div className="text-black text-sm font-semibold tracking-wide">
+                            {watch('customerName') || 'FULL NAME'}
                           </div>
                         </div>
                         
-                        {/* Address field - positioned in the address area */}
-                        <div className="absolute top-[62%] left-[8%] right-[8%]">
-                          <div className="text-black text-xs leading-tight">
+                        {/* Address field */}
+                        <div className="absolute top-[61%] left-[7%] right-[7%]">
+                          <div className="text-black text-xs leading-relaxed">
                             {watch('customerAddress') ? (
-                              <div className="space-y-1">
-                                <div className="border-b border-black/30 pb-1">
-                                  {watch('customerAddress').split(',')[0] || ''}
-                                </div>
-                                <div className="border-b border-black/30 pb-1">
-                                  {watch('customerAddress').split(',').slice(1).join(',').trim() || ''}
-                                </div>
+                              <div className="space-y-0.5">
+                                {watch('customerAddress').split(',').slice(0, 2).map((line, index) => (
+                                  <div key={index} className="truncate">
+                                    {line.trim()}
+                                  </div>
+                                ))}
                               </div>
                             ) : (
-                              <div className="space-y-1">
-                                <div className="border-b border-black/30 pb-1"></div>
-                                <div className="border-b border-black/30 pb-1"></div>
+                              <div className="space-y-0.5">
+                                <div className="text-gray-400">ADDRESS LINE 1</div>
+                                <div className="text-gray-400">ADDRESS LINE 2</div>
                               </div>
                             )}
                           </div>
@@ -349,29 +346,28 @@ export default function ApplyPage() {
                     </div>
                   </TabsContent>
                   
-                  <TabsContent value="back" className="mt-4">
-                    <div className="relative w-full aspect-[1.6/1] rounded-lg overflow-hidden">
-                      {/* Back template background */}
+                  <TabsContent value="back" className="mt-0">
+                    <div className="relative w-full aspect-[1.6/1] rounded-xl overflow-hidden shadow-md border border-gray-200">
                       <Image
                         src="https://static.wixstatic.com/media/1878e6_4375026adec345feb75c6ec63e03c246~mv2.jpg"
                         alt="ID Card Back Template"
                         className="w-full h-full object-cover"
                       />
-                      
-                      {/* The back side contains static information as per the template */}
-                      {/* No dynamic content overlay needed for the back side */}
                     </div>
                   </TabsContent>
                 </Tabs>
                 
-                <div className="mt-6 p-4 bg-light-blue/30 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <CreditCard className="w-5 h-5 text-primary" />
-                    <span className="font-heading text-sm">Payment Information</span>
+                {/* Payment Info - Simplified */}
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                  <div className="flex items-start space-x-3">
+                    <CreditCard className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-heading text-sm text-foreground mb-1">Next Steps</h4>
+                      <p className="text-xs font-paragraph text-foreground/70 leading-relaxed">
+                        Payment details will be sent via WhatsApp after submission.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm font-paragraph text-foreground/70">
-                    After submitting your application, you will receive payment details via WhatsApp for secure online payment.
-                  </p>
                 </div>
               </CardContent>
             </Card>
