@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ import {
 } from 'lucide-react';
 
 export default function StoreDashboard() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<IDCardOrders[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<IDCardOrders[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -72,9 +74,16 @@ export default function StoreDashboard() {
   };
 
   useEffect(() => {
+    // Check if user is authenticated
+    const isAuthenticated = localStorage.getItem('storeAuth') === 'true';
+    if (!isAuthenticated) {
+      navigate('/store/login');
+      return;
+    }
+    
     loadOrders();
     loadPayoutData();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     filterOrders();
@@ -314,6 +323,18 @@ export default function StoreDashboard() {
                 <Button size="lg" className="bg-blue-500 hover:bg-blue-600 text-white">
                   <Shield className="w-5 h-5 mr-2" />
                   Verify OTP
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="lg"
+                  onClick={() => {
+                    localStorage.removeItem('storeAuth');
+                    localStorage.removeItem('storeLoginId');
+                    navigate('/store/login');
+                  }}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  Logout
                 </Button>
               </div>
             </div>

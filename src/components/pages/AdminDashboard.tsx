@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Pr
 import { Image } from '@/components/ui/image';
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<IDCardOrders[]>([]);
   const [stores, setStores] = useState<Stores[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<IDCardOrders[]>([]);
@@ -55,10 +57,17 @@ export default function AdminDashboard() {
   const [isEditingCredentials, setIsEditingCredentials] = useState(false);
 
   useEffect(() => {
+    // Check if user is authenticated
+    const isAuthenticated = localStorage.getItem('adminAuth') === 'true';
+    if (!isAuthenticated) {
+      navigate('/admin/login');
+      return;
+    }
+    
     loadData();
     loadPayoutData();
     loadStoreCredentials();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     filterOrders();
@@ -553,6 +562,18 @@ export default function AdminDashboard() {
               <Button variant="outline" size="sm">
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Analytics
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  localStorage.removeItem('adminAuth');
+                  localStorage.removeItem('adminLoginId');
+                  navigate('/admin/login');
+                }}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                Logout
               </Button>
             </div>
           </div>
