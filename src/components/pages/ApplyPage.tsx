@@ -84,7 +84,9 @@ export default function ApplyPage() {
       };
 
       await BaseCrudService.create('idcardorders', orderData);
-      setIsSubmitted(true);
+      
+      // Redirect to payment page with order ID
+      window.location.href = `/payment?orderId=${orderData._id}`;
     } catch (error) {
       console.error('Error submitting application:', error);
     } finally {
@@ -397,8 +399,8 @@ export default function ApplyPage() {
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <h4 className="font-heading text-foreground mb-2">Next Steps</h4>
                     <p className="font-paragraph text-foreground/80 text-sm leading-relaxed">
-                      After confirming your details, you will receive payment instructions via WhatsApp. 
-                      Your ID card will be processed once payment is confirmed.
+                      After confirming your details, you will be redirected to the secure payment page. 
+                      Your ID card will be processed once payment is confirmed and you'll receive a WhatsApp confirmation.
                     </p>
                   </div>
                   
