@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores, StoreCredentials } from '@/entities';
+import { clearAllStores } from '@/lib/clear-stores';
 import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer, Trash2, Key, Copy, RefreshCw, EyeOff } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 
@@ -44,6 +45,10 @@ export default function AdminDashboard() {
   const [selectedPayoutRequest, setSelectedPayoutRequest] = useState<any>(null);
   const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
 
+  // Auto-clear stores state
+  const [isAutoClearing, setIsAutoClearing] = useState(false);
+  const [autoClearComplete, setAutoClearComplete] = useState(false);
+
   // Store credentials management state
   const [storeCredentials, setStoreCredentials] = useState<any[]>([]);
   const [isCredentialsDialogOpen, setIsCredentialsDialogOpen] = useState(false);
@@ -64,10 +69,26 @@ export default function AdminDashboard() {
       return;
     }
     
-    loadData();
-    loadPayoutData();
-    loadStoreCredentials();
+    // Auto-clear stores on component mount
+    autoClearStores();
   }, [navigate]);
+
+  const autoClearStores = async () => {
+    setIsAutoClearing(true);
+    try {
+      const result = await clearAllStores();
+      console.log('🔄 Auto-clear result:', result.message);
+      setAutoClearComplete(true);
+      // Load fresh data after clearing
+      loadData();
+      loadPayoutData();
+      loadStoreCredentials();
+    } catch (error) {
+      console.error('❌ Auto-clear failed:', error);
+    } finally {
+      setIsAutoClearing(false);
+    }
+  };
 
   useEffect(() => {
     filterOrders();
@@ -177,14 +198,19 @@ export default function AdminDashboard() {
     setIsDeleteDialogOpen(true);
   };
 
-  const clearAllStores = async () => {
+  const clearAllStoresHandler = async () => {
     try {
-      // Delete all stores one by one
-      for (const store of stores) {
-        await BaseCrudService.delete('stores', store._id);
+      const result = await clearAllStores();
+      if (result.success) {
+        setStores([]);
+        setStoreCredentials([]);
+        setIsClearAllDialogOpen(false);
+        console.log(result.message);
+        // Reload data to ensure UI is in sync
+        loadData();
+      } else {
+        console.error('Failed to clear stores:', result.message);
       }
-      setStores([]);
-      setIsClearAllDialogOpen(false);
     } catch (error) {
       console.error('Error clearing all stores:', error);
     }
@@ -496,6 +522,52 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-[100rem] mx-auto">
+        {/* Auto-clear status banner */}
+        {(isAutoClearing || autoClearComplete) && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <Card className={`border-2 ${isAutoClearing ? 'border-orange-200 bg-orange-50' : 'border-green-200 bg-green-50'}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {isAutoClearing ? (
+                      <>
+                        <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                        <div>
+                          <p className="font-heading text-orange-800">Clearing existing stores...</p>
+                          <p className="text-sm text-orange-600">Removing all stores to ensure clean database</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-6 h-6 text-green-600" />
+                        <div>
+                          <p className="font-heading text-green-800">Database cleared successfully!</p>
+                          <p className="text-sm text-green-600">All existing stores have been removed. Ready to add new stores.</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {autoClearComplete && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setAutoClearComplete(false)}
+                      className="text-green-600 border-green-200 hover:bg-green-100"
+                    >
+                      Dismiss
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -815,7 +887,7 @@ export default function AdminDashboard() {
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction 
-                                onClick={clearAllStores}
+                                onClick={clearAllStoresHandler}
                                 className="bg-red-500 hover:bg-red-600"
                               >
                                 Delete All Stores
