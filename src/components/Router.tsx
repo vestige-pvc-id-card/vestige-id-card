@@ -9,6 +9,7 @@ import AboutPage from '@/components/pages/AboutPage';
 import PoliciesPage from '@/components/pages/PoliciesPage';
 import ContactPage from '@/components/pages/ContactPage';
 import AdminDashboard from '@/components/pages/AdminDashboard';
+import StoreDashboard from '@/components/pages/StoreDashboard';
 
 const router = createBrowserRouter([
   {
@@ -55,6 +56,10 @@ const router = createBrowserRouter([
       {
         path: "admin",
         element: <AdminDashboard />,
+      },
+      {
+        path: "store",
+        element: <StoreDashboard />,
       },
       {
         path: "*",

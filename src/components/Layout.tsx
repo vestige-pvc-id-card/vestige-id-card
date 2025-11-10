@@ -61,6 +61,9 @@ export default function Layout() {
               <Button asChild variant="outline" size="sm">
                 <Link to="/admin">Admin</Link>
               </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/store">Store</Link>
+              </Button>
               <Button asChild size="sm" className="bg-primary text-primary-foreground">
                 <Link to="/apply">Apply Now</Link>
               </Button>
@@ -103,6 +106,9 @@ export default function Layout() {
                 <div className="pt-4 border-t border-gray-200 space-y-2">
                   <Button asChild variant="outline" size="sm" className="w-full">
                     <Link to="/admin" onClick={() => setIsMenuOpen(false)}>Admin Dashboard</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="w-full">
+                    <Link to="/store" onClick={() => setIsMenuOpen(false)}>Store Dashboard</Link>
                   </Button>
                   <Button asChild size="sm" className="w-full bg-primary text-primary-foreground">
                     <Link to="/apply" onClick={() => setIsMenuOpen(false)}>Apply Now</Link>
