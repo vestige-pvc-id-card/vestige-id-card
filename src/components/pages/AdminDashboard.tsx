@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Clock } from 'lucide-react';
+import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 
 export default function AdminDashboard() {
@@ -783,7 +783,7 @@ export default function AdminDashboard() {
                           <p className="text-2xl font-heading">{payoutRequests.filter(r => r.status === 'Pending').length}</p>
                           <p className="text-orange-200 text-xs">Awaiting approval</p>
                         </div>
-                        <Clock className="w-8 h-8 text-orange-200" />
+                        <Timer className="w-8 h-8 text-orange-200" />
                       </div>
                     </CardContent>
                   </Card>
