@@ -132,7 +132,7 @@ export default function Layout() {
             {/* Company Info */}
             <div className="md:col-span-2">
               <Image
-                src="https://static.wixstatic.com/media/1878e6_8599554ce510497391660ead71601ec3~mv2.png"
+                src="https://static.wixstatic.com/media/1878e6_6e99d90c8bf84c5091a40b577c790e5c~mv2.png"
                 alt="Vestige Logo"
                 width={150}
                 className="mb-4 brightness-0 invert"
