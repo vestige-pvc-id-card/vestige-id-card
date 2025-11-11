@@ -46,7 +46,6 @@ export default function ApplyPage() {
       // Only show active stores for customer selection
       const activeStores = items.filter(store => store.isActive);
       setStores(activeStores);
-      console.log(`Loaded ${activeStores.length} active stores for customer selection`);
     } catch (error) {
       console.error('Error loading stores:', error);
     }
