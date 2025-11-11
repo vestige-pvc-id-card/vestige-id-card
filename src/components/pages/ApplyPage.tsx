@@ -42,12 +42,22 @@ export default function ApplyPage() {
 
   const loadStores = async () => {
     try {
+      console.log('Loading stores...');
       const { items } = await BaseCrudService.getAll<Stores>('stores');
+      console.log('Stores loaded:', items);
+      
       // Only show active stores for customer selection
       const activeStores = items.filter(store => store.isActive);
+      console.log('Active stores:', activeStores);
+      
       setStores(activeStores);
+      
+      if (activeStores.length === 0) {
+        setSubmitError('No active stores available. Please contact support.');
+      }
     } catch (error) {
       console.error('Error loading stores:', error);
+      setSubmitError('Failed to load store locations. Please refresh the page and try again.');
     }
   };
 
@@ -221,9 +231,8 @@ export default function ApplyPage() {
       console.log('Creating order with data:', { ...orderData, customerPhoto: '[IMAGE_DATA]' });
       
       // Create the order in the database
-      await BaseCrudService.create('idcardorders', orderData);
-      
-      console.log('Order created successfully, redirecting to payment...');
+      const createdOrder = await BaseCrudService.create('idcardorders', orderData);
+      console.log('Order created successfully:', createdOrder);
       
       // Redirect to payment page with order ID - using React Router navigation
       const paymentUrl = `/payment?orderId=${orderData._id}`;
@@ -234,10 +243,20 @@ export default function ApplyPage() {
       
     } catch (error) {
       console.error('Error submitting application:', error);
-      if (error instanceof Error && error.message.includes('too large')) {
-        setSubmitError('Form data is too large. Please use a smaller image or reduce text length.');
+      
+      // More specific error handling
+      if (error instanceof Error) {
+        if (error.message.includes('too large')) {
+          setSubmitError('Form data is too large. Please use a smaller image or reduce text length.');
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          setSubmitError('Network error. Please check your internet connection and try again.');
+        } else if (error.message.includes('timeout')) {
+          setSubmitError('Request timed out. Please try again.');
+        } else {
+          setSubmitError(error.message || 'Failed to submit application. Please try again.');
+        }
       } else {
-        setSubmitError(error instanceof Error ? error.message : 'Failed to submit application. Please try again.');
+        setSubmitError('An unexpected error occurred. Please try again.');
       }
       setIsSubmitting(false);
     }
@@ -544,14 +563,20 @@ export default function ApplyPage() {
                       <Label className="font-paragraph">Select Nearest Store *</Label>
                       <Select onValueChange={(value) => setValue('storeId', value)}>
                         <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Choose your nearest store for pickup" />
+                          <SelectValue placeholder={stores.length > 0 ? "Choose your nearest store for pickup" : "Loading stores..."} />
                         </SelectTrigger>
                         <SelectContent>
-                          {stores.map((store) => (
-                            <SelectItem key={store._id} value={store._id}>
-                              {store.storeName} - {store.storeCity}
+                          {stores.length > 0 ? (
+                            stores.map((store) => (
+                              <SelectItem key={store._id} value={store._id}>
+                                {store.storeName} - {store.storeCity}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="all" disabled>
+                              {submitError.includes('No active stores') ? 'No stores available' : 'Loading stores...'}
                             </SelectItem>
-                          ))}
+                          )}
                         </SelectContent>
                       </Select>
                       {errors.storeId && (

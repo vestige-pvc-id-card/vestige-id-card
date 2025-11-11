@@ -13,6 +13,7 @@ import StoreDashboard from '@/components/pages/StoreDashboard';
 import AdminLoginPage from '@/components/pages/AdminLoginPage';
 import StoreLoginPage from '@/components/pages/StoreLoginPage';
 import PaymentPageEnhanced from '@/components/pages/PaymentPageEnhanced';
+import DiagnosticsPage from '@/components/pages/DiagnosticsPage';
 
 const router = createBrowserRouter([
   {
@@ -75,6 +76,10 @@ const router = createBrowserRouter([
       {
         path: "store/login",
         element: <StoreLoginPage />,
+      },
+      {
+        path: "diagnostics",
+        element: <DiagnosticsPage />,
       },
       {
         path: "*",

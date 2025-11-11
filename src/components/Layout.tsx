@@ -59,6 +59,9 @@ export default function Layout() {
             {/* Desktop CTA */}
             <div className="hidden md:flex items-center space-x-4">
               <Button asChild variant="outline" size="sm">
+                <Link to="/diagnostics">Diagnostics</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
                 <Link to="/admin">Admin</Link>
               </Button>
               <Button asChild variant="outline" size="sm">
@@ -104,6 +107,9 @@ export default function Layout() {
                   </Link>
                 ))}
                 <div className="pt-4 border-t border-gray-200 space-y-2">
+                  <Button asChild variant="outline" size="sm" className="w-full">
+                    <Link to="/diagnostics" onClick={() => setIsMenuOpen(false)}>System Diagnostics</Link>
+                  </Button>
                   <Button asChild variant="outline" size="sm" className="w-full">
                     <Link to="/admin" onClick={() => setIsMenuOpen(false)}>Admin Dashboard</Link>
                   </Button>

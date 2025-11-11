@@ -154,16 +154,32 @@ export default function PaymentPage({ orderId: propOrderId }: PaymentPageProps) 
       logInfo('Loading order data', { orderId });
       
       const orderData = await BaseCrudService.getById<IDCardOrders>('idcardorders', orderId);
+      logInfo('Order data response:', orderData);
       
       if (orderData) {
-        logInfo('Order loaded successfully');
+        logInfo('Order loaded successfully', orderData);
         setOrder(orderData);
       } else {
-        logError('Order not found');
+        logError('Order not found - received null/undefined response');
+        alert('Order not found. Please check your order ID or try applying again.');
         navigate('/apply');
       }
     } catch (error) {
       logError('Error loading order', error);
+      
+      // More specific error handling
+      if (error instanceof Error) {
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+          alert('Network error while loading order. Please check your internet connection and try again.');
+        } else if (error.message.includes('timeout')) {
+          alert('Request timed out while loading order. Please try again.');
+        } else {
+          alert(`Error loading order: ${error.message}`);
+        }
+      } else {
+        alert('An unexpected error occurred while loading your order. Please try again.');
+      }
+      
       navigate('/apply');
     } finally {
       setIsLoading(false);
@@ -261,12 +277,12 @@ Thank you for choosing Vestige!`;
             logInfo('Payment successful', { paymentId: response.razorpay_payment_id });
             
             // Update order status to paid
-            await BaseCrudService.update('idcardorders', {
+            const updateResult = await BaseCrudService.update('idcardorders', {
               _id: order._id,
               orderStatus: 'Paid',
             });
 
-            logInfo('Order status updated to Paid');
+            logInfo('Order status updated to Paid', updateResult);
 
             // Send WhatsApp confirmation
             await sendWhatsAppConfirmation(response.razorpay_payment_id || paymentId);
@@ -280,7 +296,21 @@ Thank you for choosing Vestige!`;
 
           } catch (error) {
             logError('Error in payment success handler', error);
-            alert('Payment was successful but there was an issue updating your order. Please contact support with your payment ID: ' + (response.razorpay_payment_id || paymentId));
+            
+            // More specific error handling for payment success issues
+            let errorMessage = 'Payment was successful but there was an issue updating your order. ';
+            if (error instanceof Error) {
+              if (error.message.includes('network') || error.message.includes('fetch')) {
+                errorMessage += 'Network error occurred. ';
+              } else if (error.message.includes('timeout')) {
+                errorMessage += 'Request timed out. ';
+              } else {
+                errorMessage += `Error: ${error.message}. `;
+              }
+            }
+            errorMessage += `Please contact support with your payment ID: ${response.razorpay_payment_id || paymentId}`;
+            
+            alert(errorMessage);
             setPaymentStatus('failed');
           }
         },
