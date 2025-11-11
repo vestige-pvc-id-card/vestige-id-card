@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores, StoreCredentials } from '@/entities';
 import { clearAllOrders, clearAllData } from '@/lib/clear-stores';
-import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer, Trash2, Key, Copy, RefreshCw, EyeOff } from 'lucide-react';
+import { Search, Download, Users, CreditCard, Package, TrendingUp, Eye, Edit, Printer, Truck, CheckCircle, Plus, MessageSquare, BarChart3, FileText, Calendar, Timer, Trash2, Key, Copy, RefreshCw, EyeOff, Filter, X, SortAsc, SortDesc, CalendarDays } from 'lucide-react';
 import { Image } from '@/components/ui/image';
 
 export default function AdminDashboard() {
@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<IDCardOrders[]>([]);
   const [stores, setStores] = useState<Stores[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<IDCardOrders[]>([]);
+  const [filteredStores, setFilteredStores] = useState<Stores[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<IDCardOrders | null>(null);
@@ -38,6 +39,41 @@ export default function AdminDashboard() {
     storeCity: '',
     isActive: true
   });
+
+  // Advanced filter states
+  const [orderFilters, setOrderFilters] = useState({
+    status: 'all',
+    dateRange: 'all',
+    sortBy: 'date',
+    sortOrder: 'desc' as 'asc' | 'desc',
+    storeFilter: 'all'
+  });
+
+  const [storeFilters, setStoreFilters] = useState({
+    status: 'all',
+    city: 'all',
+    performance: 'all',
+    sortBy: 'name',
+    sortOrder: 'asc' as 'asc' | 'desc'
+  });
+
+  const [payoutFilters, setPayoutFilters] = useState({
+    status: 'all',
+    dateRange: 'all',
+    amountRange: 'all',
+    sortBy: 'date',
+    sortOrder: 'desc' as 'asc' | 'desc'
+  });
+
+  const [showFilters, setShowFilters] = useState({
+    orders: false,
+    stores: false,
+    payouts: false,
+    commissions: false
+  });
+
+  // Store search term
+  const [storeSearchTerm, setStoreSearchTerm] = useState('');
 
   // Payout management state
   const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
@@ -101,7 +137,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     filterOrders();
-  }, [orders, searchTerm, statusFilter]);
+  }, [orders, searchTerm, statusFilter, orderFilters]);
+
+  useEffect(() => {
+    filterStores();
+  }, [stores, storeSearchTerm, storeFilters]);
 
   const loadData = async () => {
     try {
@@ -134,21 +174,313 @@ export default function AdminDashboard() {
   };
 
   const filterOrders = () => {
-    let filtered = orders;
+    let filtered = [...orders];
 
+    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(order =>
         order.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.vestigeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.mobileNumber?.includes(searchTerm)
+        order.mobileNumber?.includes(searchTerm) ||
+        order._id.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
+    // Apply status filter (legacy support)
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => order.orderStatus === statusFilter);
     }
 
+    // Apply advanced status filter
+    if (orderFilters.status !== 'all') {
+      filtered = filtered.filter(order => order.orderStatus === orderFilters.status);
+    }
+
+    // Apply date range filter
+    if (orderFilters.dateRange !== 'all') {
+      const now = new Date();
+      const filterDate = new Date();
+      
+      switch (orderFilters.dateRange) {
+        case 'today':
+          filterDate.setHours(0, 0, 0, 0);
+          filtered = filtered.filter(order => {
+            const orderDate = new Date(order._createdDate || '');
+            return orderDate >= filterDate;
+          });
+          break;
+        case 'week':
+          filterDate.setDate(now.getDate() - 7);
+          filtered = filtered.filter(order => {
+            const orderDate = new Date(order._createdDate || '');
+            return orderDate >= filterDate;
+          });
+          break;
+        case 'month':
+          filterDate.setMonth(now.getMonth() - 1);
+          filtered = filtered.filter(order => {
+            const orderDate = new Date(order._createdDate || '');
+            return orderDate >= filterDate;
+          });
+          break;
+        case 'quarter':
+          filterDate.setMonth(now.getMonth() - 3);
+          filtered = filtered.filter(order => {
+            const orderDate = new Date(order._createdDate || '');
+            return orderDate >= filterDate;
+          });
+          break;
+      }
+    }
+
+    // Apply store filter
+    if (orderFilters.storeFilter !== 'all') {
+      filtered = filtered.filter(order => 
+        order.vestigeId?.includes(orderFilters.storeFilter.slice(-4))
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (orderFilters.sortBy) {
+        case 'name':
+          aValue = a.customerName || '';
+          bValue = b.customerName || '';
+          break;
+        case 'status':
+          aValue = a.orderStatus || '';
+          bValue = b.orderStatus || '';
+          break;
+        case 'vestigeId':
+          aValue = a.vestigeId || '';
+          bValue = b.vestigeId || '';
+          break;
+        case 'date':
+        default:
+          aValue = new Date(a._createdDate || '').getTime();
+          bValue = new Date(b._createdDate || '').getTime();
+          break;
+      }
+      
+      if (orderFilters.sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
     setFilteredOrders(filtered);
+  };
+
+  const filterStores = () => {
+    let filtered = [...stores];
+
+    // Apply search filter
+    if (storeSearchTerm) {
+      filtered = filtered.filter(store =>
+        store.storeName?.toLowerCase().includes(storeSearchTerm.toLowerCase()) ||
+        store.storeCity?.toLowerCase().includes(storeSearchTerm.toLowerCase()) ||
+        store.contactPerson?.toLowerCase().includes(storeSearchTerm.toLowerCase()) ||
+        store.contactNumber?.includes(storeSearchTerm)
+      );
+    }
+
+    // Apply status filter
+    if (storeFilters.status !== 'all') {
+      const isActive = storeFilters.status === 'active';
+      filtered = filtered.filter(store => store.isActive === isActive);
+    }
+
+    // Apply city filter
+    if (storeFilters.city !== 'all') {
+      filtered = filtered.filter(store => store.storeCity === storeFilters.city);
+    }
+
+    // Apply performance filter
+    if (storeFilters.performance !== 'all') {
+      filtered = filtered.filter(store => {
+        const storeOrders = orders.filter(o => o.vestigeId?.includes(store._id.slice(-4)));
+        const deliveredOrders = storeOrders.filter(o => o.orderStatus === 'Delivered' || o.orderStatus === 'Received');
+        const performance = storeOrders.length > 0 ? Math.round((deliveredOrders.length / storeOrders.length) * 100) : 0;
+        
+        switch (storeFilters.performance) {
+          case 'high':
+            return performance >= 80;
+          case 'medium':
+            return performance >= 60 && performance < 80;
+          case 'low':
+            return performance < 60;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (storeFilters.sortBy) {
+        case 'name':
+          aValue = a.storeName || '';
+          bValue = b.storeName || '';
+          break;
+        case 'city':
+          aValue = a.storeCity || '';
+          bValue = b.storeCity || '';
+          break;
+        case 'orders':
+          aValue = orders.filter(o => o.vestigeId?.includes(a._id.slice(-4))).length;
+          bValue = orders.filter(o => o.vestigeId?.includes(b._id.slice(-4))).length;
+          break;
+        case 'performance':
+          const aOrders = orders.filter(o => o.vestigeId?.includes(a._id.slice(-4)));
+          const bOrders = orders.filter(o => o.vestigeId?.includes(b._id.slice(-4)));
+          const aDelivered = aOrders.filter(o => o.orderStatus === 'Delivered' || o.orderStatus === 'Received');
+          const bDelivered = bOrders.filter(o => o.orderStatus === 'Delivered' || o.orderStatus === 'Received');
+          aValue = aOrders.length > 0 ? (aDelivered.length / aOrders.length) * 100 : 0;
+          bValue = bOrders.length > 0 ? (bDelivered.length / bOrders.length) * 100 : 0;
+          break;
+        case 'date':
+        default:
+          aValue = new Date(a._createdDate || '').getTime();
+          bValue = new Date(b._createdDate || '').getTime();
+          break;
+      }
+      
+      if (storeFilters.sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    setFilteredStores(filtered);
+  };
+
+  // Reset filter functions
+  const resetOrderFilters = () => {
+    setOrderFilters({
+      status: 'all',
+      dateRange: 'all',
+      sortBy: 'date',
+      sortOrder: 'desc',
+      storeFilter: 'all'
+    });
+    setSearchTerm('');
+    setStatusFilter('all');
+  };
+
+  const resetStoreFilters = () => {
+    setStoreFilters({
+      status: 'all',
+      city: 'all',
+      performance: 'all',
+      sortBy: 'name',
+      sortOrder: 'asc'
+    });
+    setStoreSearchTerm('');
+  };
+
+  const resetPayoutFilters = () => {
+    setPayoutFilters({
+      status: 'all',
+      dateRange: 'all',
+      amountRange: 'all',
+      sortBy: 'date',
+      sortOrder: 'desc'
+    });
+  };
+
+  // Get unique cities for filter dropdown
+  const getUniqueCities = () => {
+    const cities = stores.map(store => store.storeCity).filter(Boolean);
+    return [...new Set(cities)].sort();
+  };
+
+  // Filter payout requests
+  const getFilteredPayoutRequests = () => {
+    let filtered = [...payoutRequests];
+
+    // Apply status filter
+    if (payoutFilters.status !== 'all') {
+      filtered = filtered.filter(request => request.status === payoutFilters.status);
+    }
+
+    // Apply date range filter
+    if (payoutFilters.dateRange !== 'all') {
+      const now = new Date();
+      const filterDate = new Date();
+      
+      switch (payoutFilters.dateRange) {
+        case 'week':
+          filterDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          filterDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'quarter':
+          filterDate.setMonth(now.getMonth() - 3);
+          break;
+      }
+      
+      filtered = filtered.filter(request => {
+        const requestDate = new Date(request.requestDate);
+        return requestDate >= filterDate;
+      });
+    }
+
+    // Apply amount range filter
+    if (payoutFilters.amountRange !== 'all') {
+      filtered = filtered.filter(request => {
+        const amount = request.amount;
+        switch (payoutFilters.amountRange) {
+          case 'small':
+            return amount < 1000;
+          case 'medium':
+            return amount >= 1000 && amount < 5000;
+          case 'large':
+            return amount >= 5000;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (payoutFilters.sortBy) {
+        case 'amount':
+          aValue = a.amount;
+          bValue = b.amount;
+          break;
+        case 'store':
+          aValue = a.storeName || '';
+          bValue = b.storeName || '';
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case 'date':
+        default:
+          aValue = new Date(a.requestDate).getTime();
+          bValue = new Date(b.requestDate).getTime();
+          break;
+      }
+      
+      if (payoutFilters.sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    return filtered;
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -842,29 +1174,185 @@ export default function AdminDashboard() {
             <TabsContent value="orders">
               <Card className="bg-white shadow-sm">
                 <CardHeader className="bg-slate-50 border-b">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <CardTitle className="font-heading text-slate-900">Orders Management</CardTitle>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Button onClick={() => exportData('csv', 'daily')} variant="outline" size="sm">
-                        <Download className="w-4 h-4 mr-2" />
-                        Export Today
-                      </Button>
-                      <Button onClick={() => sendWhatsAppNotification('all', 'Bulk update notification')} variant="outline" size="sm">
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Bulk WhatsApp
-                      </Button>
-                      {orders.length > 0 && (
-                        <Button 
-                          onClick={clearAllOrdersHandler}
-                          variant="outline" 
-                          size="sm" 
-                          className="text-red-600 border-red-200 hover:bg-red-50"
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <CardTitle className="font-heading text-slate-900">Orders Management</CardTitle>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowFilters(prev => ({ ...prev, orders: !prev.orders }))}
+                          className="flex items-center space-x-2"
                         >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Clear All Orders
+                          <Filter className="w-4 h-4" />
+                          <span>Advanced Filters</span>
+                          {(orderFilters.status !== 'all' || orderFilters.dateRange !== 'all' || orderFilters.storeFilter !== 'all') && (
+                            <Badge className="bg-blue-500 text-white ml-1">
+                              {[
+                                orderFilters.status !== 'all' ? 1 : 0,
+                                orderFilters.dateRange !== 'all' ? 1 : 0,
+                                orderFilters.storeFilter !== 'all' ? 1 : 0
+                              ].reduce((a, b) => a + b)}
+                            </Badge>
+                          )}
                         </Button>
-                      )}
+                        <Button onClick={() => exportData('csv', 'daily')} variant="outline" size="sm">
+                          <Download className="w-4 h-4 mr-2" />
+                          Export Today
+                        </Button>
+                        <Button onClick={() => sendWhatsAppNotification('all', 'Bulk update notification')} variant="outline" size="sm">
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Bulk WhatsApp
+                        </Button>
+                        {orders.length > 0 && (
+                          <Button 
+                            onClick={clearAllOrdersHandler}
+                            variant="outline" 
+                            size="sm" 
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Clear All Orders
+                          </Button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Advanced Filter Panel */}
+                    {showFilters.orders && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="bg-white border border-slate-200 rounded-lg p-4"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Status</Label>
+                            <Select 
+                              value={orderFilters.status} 
+                              onValueChange={(value) => setOrderFilters(prev => ({ ...prev, status: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="Pending">Pending</SelectItem>
+                                <SelectItem value="Printed">Printed</SelectItem>
+                                <SelectItem value="Dispatched">Dispatched</SelectItem>
+                                <SelectItem value="Delivered">Delivered</SelectItem>
+                                <SelectItem value="Received">Received</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Date Range</Label>
+                            <Select 
+                              value={orderFilters.dateRange} 
+                              onValueChange={(value) => setOrderFilters(prev => ({ ...prev, dateRange: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Time</SelectItem>
+                                <SelectItem value="today">Today</SelectItem>
+                                <SelectItem value="week">Last 7 Days</SelectItem>
+                                <SelectItem value="month">Last 30 Days</SelectItem>
+                                <SelectItem value="quarter">Last 3 Months</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Store</Label>
+                            <Select 
+                              value={orderFilters.storeFilter} 
+                              onValueChange={(value) => setOrderFilters(prev => ({ ...prev, storeFilter: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Stores</SelectItem>
+                                {stores.map((store) => (
+                                  <SelectItem key={store._id} value={store._id}>
+                                    {store.storeName} - {store.storeCity}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Sort By</Label>
+                            <Select 
+                              value={orderFilters.sortBy} 
+                              onValueChange={(value) => setOrderFilters(prev => ({ ...prev, sortBy: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="date">Date Created</SelectItem>
+                                <SelectItem value="name">Customer Name</SelectItem>
+                                <SelectItem value="status">Status</SelectItem>
+                                <SelectItem value="vestigeId">Vestige ID</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Sort Order</Label>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Button
+                                variant={orderFilters.sortOrder === 'desc' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setOrderFilters(prev => ({ ...prev, sortOrder: 'desc' }))}
+                                className="flex-1"
+                              >
+                                <SortDesc className="w-4 h-4 mr-1" />
+                                Desc
+                              </Button>
+                              <Button
+                                variant={orderFilters.sortOrder === 'asc' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setOrderFilters(prev => ({ ...prev, sortOrder: 'asc' }))}
+                                className="flex-1"
+                              >
+                                <SortAsc className="w-4 h-4 mr-1" />
+                                Asc
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
+                          <div className="text-sm text-slate-600">
+                            Showing {filteredOrders.length} of {orders.length} orders
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={resetOrderFilters}
+                              className="flex items-center space-x-1"
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Reset</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowFilters(prev => ({ ...prev, orders: false }))}
+                            >
+                              Close
+                            </Button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
@@ -1001,110 +1489,252 @@ export default function AdminDashboard() {
             <TabsContent value="stores">
               <Card className="bg-white shadow-sm">
                 <CardHeader className="bg-slate-50 border-b">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <CardTitle className="font-heading text-slate-900">Store Partner Management</CardTitle>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="flex items-center space-x-2"
-                      >
-                        <EyeOff className="w-4 h-4" />
-                        <span>{showPassword ? 'Hide' : 'Show'} Passwords</span>
-                      </Button>
-                      {stores.length > 0 && (
-                        <AlertDialog open={isClearAllDialogOpen} onOpenChange={setIsClearAllDialogOpen}>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Clear All Stores
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <CardTitle className="font-heading text-slate-900">Store Partner Management</CardTitle>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowFilters(prev => ({ ...prev, stores: !prev.stores }))}
+                          className="flex items-center space-x-2"
+                        >
+                          <Filter className="w-4 h-4" />
+                          <span>Filters</span>
+                          {(storeFilters.status !== 'all' || storeFilters.city !== 'all' || storeFilters.performance !== 'all') && (
+                            <Badge className="bg-blue-500 text-white ml-1">
+                              {[
+                                storeFilters.status !== 'all' ? 1 : 0,
+                                storeFilters.city !== 'all' ? 1 : 0,
+                                storeFilters.performance !== 'all' ? 1 : 0
+                              ].reduce((a, b) => a + b)}
+                            </Badge>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="flex items-center space-x-2"
+                        >
+                          <EyeOff className="w-4 h-4" />
+                          <span>{showPassword ? 'Hide' : 'Show'} Passwords</span>
+                        </Button>
+                        {stores.length > 0 && (
+                          <AlertDialog open={isClearAllDialogOpen} onOpenChange={setIsClearAllDialogOpen}>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Clear All Stores
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Clear All Stores</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete all {stores.length} stores? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={clearAllStoresHandler}
+                                  className="bg-red-500 hover:bg-red-600"
+                                >
+                                  Delete All Stores
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                        <Dialog open={isAddStoreOpen} onOpenChange={setIsAddStoreOpen}>
+                          <DialogTrigger asChild>
+                            <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add New Store
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Clear All Stores</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete all {stores.length} stores? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={clearAllStoresHandler}
-                                className="bg-red-500 hover:bg-red-600"
-                              >
-                                Delete All Stores
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                      <Dialog open={isAddStoreOpen} onOpenChange={setIsAddStoreOpen}>
-                        <DialogTrigger asChild>
-                          <Button className="bg-blue-500 hover:bg-blue-600 text-white">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add New Store
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Add New Store Partner</DialogTitle>
+                            </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="storeName">Store Name</Label>
+                              <Input
+                                id="storeName"
+                                value={newStore.storeName}
+                                onChange={(e) => setNewStore({...newStore, storeName: e.target.value})}
+                                placeholder="Enter store name"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="storeCity">City</Label>
+                              <Input
+                                id="storeCity"
+                                value={newStore.storeCity}
+                                onChange={(e) => setNewStore({...newStore, storeCity: e.target.value})}
+                                placeholder="Enter city"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="contactPerson">Contact Person</Label>
+                              <Input
+                                id="contactPerson"
+                                value={newStore.contactPerson}
+                                onChange={(e) => setNewStore({...newStore, contactPerson: e.target.value})}
+                                placeholder="Enter contact person name"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="contactNumber">Phone Number</Label>
+                              <Input
+                                id="contactNumber"
+                                value={newStore.contactNumber}
+                                onChange={(e) => setNewStore({...newStore, contactNumber: e.target.value})}
+                                placeholder="Enter phone number"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="storeAddress">Address</Label>
+                              <Textarea
+                                id="storeAddress"
+                                value={newStore.storeAddress}
+                                onChange={(e) => setNewStore({...newStore, storeAddress: e.target.value})}
+                                placeholder="Enter complete address"
+                                rows={3}
+                              />
+                            </div>
+                            <Button onClick={addStore} className="w-full bg-blue-500 hover:bg-blue-600">
+                              Add Store Partner
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+
+                  {/* Store Filter Panel */}
+                  {showFilters.stores && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="bg-white border border-slate-200 rounded-lg p-4"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Search Stores</Label>
+                          <div className="relative mt-1">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <Input
+                              placeholder="Search stores..."
+                              value={storeSearchTerm}
+                              onChange={(e) => setStoreSearchTerm(e.target.value)}
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Status</Label>
+                          <Select 
+                            value={storeFilters.status} 
+                            onValueChange={(value) => setStoreFilters(prev => ({ ...prev, status: value }))}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Status</SelectItem>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">City</Label>
+                          <Select 
+                            value={storeFilters.city} 
+                            onValueChange={(value) => setStoreFilters(prev => ({ ...prev, city: value }))}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Cities</SelectItem>
+                              {getUniqueCities().map((city) => (
+                                <SelectItem key={city} value={city}>
+                                  {city}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Performance</Label>
+                          <Select 
+                            value={storeFilters.performance} 
+                            onValueChange={(value) => setStoreFilters(prev => ({ ...prev, performance: value }))}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Performance</SelectItem>
+                              <SelectItem value="high">High (80%+)</SelectItem>
+                              <SelectItem value="medium">Medium (60-79%)</SelectItem>
+                              <SelectItem value="low">Low (&lt;60%)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">Sort By</Label>
+                          <Select 
+                            value={storeFilters.sortBy} 
+                            onValueChange={(value) => setStoreFilters(prev => ({ ...prev, sortBy: value }))}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="name">Store Name</SelectItem>
+                              <SelectItem value="city">City</SelectItem>
+                              <SelectItem value="orders">Order Count</SelectItem>
+                              <SelectItem value="performance">Performance</SelectItem>
+                              <SelectItem value="date">Date Added</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
+                        <div className="text-sm text-slate-600">
+                          Showing {filteredStores.length} of {stores.length} stores
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={resetStoreFilters}
+                            className="flex items-center space-x-1"
+                          >
+                            <X className="w-4 h-4" />
+                            <span>Reset</span>
                           </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Add New Store Partner</DialogTitle>
-                          </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="storeName">Store Name</Label>
-                            <Input
-                              id="storeName"
-                              value={newStore.storeName}
-                              onChange={(e) => setNewStore({...newStore, storeName: e.target.value})}
-                              placeholder="Enter store name"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="storeCity">City</Label>
-                            <Input
-                              id="storeCity"
-                              value={newStore.storeCity}
-                              onChange={(e) => setNewStore({...newStore, storeCity: e.target.value})}
-                              placeholder="Enter city"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="contactPerson">Contact Person</Label>
-                            <Input
-                              id="contactPerson"
-                              value={newStore.contactPerson}
-                              onChange={(e) => setNewStore({...newStore, contactPerson: e.target.value})}
-                              placeholder="Enter contact person name"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="contactNumber">Phone Number</Label>
-                            <Input
-                              id="contactNumber"
-                              value={newStore.contactNumber}
-                              onChange={(e) => setNewStore({...newStore, contactNumber: e.target.value})}
-                              placeholder="Enter phone number"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="storeAddress">Address</Label>
-                            <Textarea
-                              id="storeAddress"
-                              value={newStore.storeAddress}
-                              onChange={(e) => setNewStore({...newStore, storeAddress: e.target.value})}
-                              placeholder="Enter complete address"
-                              rows={3}
-                            />
-                          </div>
-                          <Button onClick={addStore} className="w-full bg-blue-500 hover:bg-blue-600">
-                            Add Store Partner
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowFilters(prev => ({ ...prev, stores: false }))}
+                          >
+                            Close
                           </Button>
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
                 </CardHeader>
                 <CardContent className="p-6">
@@ -1124,7 +1754,7 @@ export default function AdminDashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {stores.map((store) => {
+                        {filteredStores.map((store) => {
                           const storeOrders = orders.filter(o => o.vestigeId?.includes(store._id.slice(-4)));
                           const deliveredOrders = storeOrders.filter(o => o.orderStatus === 'Delivered' || o.orderStatus === 'Received');
                           const performance = storeOrders.length > 0 ? Math.round((deliveredOrders.length / storeOrders.length) * 100) : 0;
