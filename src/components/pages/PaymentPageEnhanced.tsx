@@ -17,7 +17,8 @@ import {
   MapPin, 
   Building2,
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  Bug
 } from 'lucide-react';
 
 interface PaymentPageProps {
@@ -228,26 +229,48 @@ Thank you for choosing Vestige!`;
   };
 
   const handlePayment = async () => {
+    logError('Payment initiation started');
+    updateDebugInfo('paymentInitStart', new Date().toISOString());
+    
+    // Enhanced validation with detailed logging
     if (!razorpayLoaded) {
+      logError('Razorpay not loaded - payment cannot proceed');
+      updateDebugInfo('paymentBlockReason', 'razorpay_not_loaded');
       alert('Payment system is still loading. Please wait a moment and try again.');
       return;
     }
 
     if (!order) {
+      logError('Order data missing - payment cannot proceed');
+      updateDebugInfo('paymentBlockReason', 'order_missing');
       alert('Order information is missing. Please go back and try again.');
       return;
     }
 
     if (!window.Razorpay) {
+      logError('window.Razorpay not available despite razorpayLoaded being true');
+      updateDebugInfo('paymentBlockReason', 'window_razorpay_missing');
+      updateDebugInfo('windowRazorpayType', typeof window.Razorpay);
       alert('Payment system failed to load. Please refresh the page and try again.');
+      return;
+    }
+
+    // Validate API key
+    if (!RAZORPAY_KEY || RAZORPAY_KEY.length < 10) {
+      logError('Invalid Razorpay API key', { keyLength: RAZORPAY_KEY?.length });
+      updateDebugInfo('paymentBlockReason', 'invalid_api_key');
+      alert('Payment configuration error. Please contact support.');
       return;
     }
 
     setIsProcessingPayment(true);
     setPaymentStatus('processing');
+    updateDebugInfo('paymentProcessingStart', new Date().toISOString());
 
     try {
       const paymentId = generatePaymentId();
+      logError('Generated payment ID', { paymentId });
+      updateDebugInfo('generatedPaymentId', paymentId);
       
       const options: RazorpayOptions = {
         key: RAZORPAY_KEY,
@@ -258,7 +281,8 @@ Thank you for choosing Vestige!`;
         order_id: paymentId,
         handler: async (response: any) => {
           try {
-            console.log('Payment successful:', response);
+            logError('Payment handler called - payment successful', response);
+            updateDebugInfo('paymentResponse', response);
             
             // Update order status to paid with payment details
             await BaseCrudService.update('idcardorders', {
@@ -266,6 +290,9 @@ Thank you for choosing Vestige!`;
               orderStatus: 'Paid',
               // Note: Consider adding payment fields to your schema for production
             });
+
+            logError('Order status updated to Paid');
+            updateDebugInfo('orderStatusUpdated', true);
 
             // Send WhatsApp confirmation
             await sendWhatsAppConfirmation(response.razorpay_payment_id || paymentId);
@@ -278,7 +305,8 @@ Thank you for choosing Vestige!`;
             }, 3000);
 
           } catch (error) {
-            console.error('Error processing payment confirmation:', error);
+            logError('Error in payment success handler', error);
+            updateDebugInfo('paymentHandlerError', error);
             alert('Payment was successful but there was an issue updating your order. Please contact support with your payment ID: ' + (response.razorpay_payment_id || paymentId));
             setPaymentStatus('failed');
           }
@@ -293,7 +321,8 @@ Thank you for choosing Vestige!`;
         },
         modal: {
           ondismiss: () => {
-            console.log('Payment modal dismissed by user');
+            logError('Payment modal dismissed by user');
+            updateDebugInfo('paymentDismissed', new Date().toISOString());
             setIsProcessingPayment(false);
             setPaymentStatus('pending');
           }
@@ -306,21 +335,53 @@ Thank you for choosing Vestige!`;
         remember_customer: false
       };
 
+      logError('Creating Razorpay instance with options', { 
+        key: RAZORPAY_KEY.substring(0, 10) + '...', 
+        amount: options.amount,
+        currency: options.currency,
+        order_id: options.order_id 
+      });
+      updateDebugInfo('razorpayOptions', { 
+        key: RAZORPAY_KEY.substring(0, 10) + '...', 
+        amount: options.amount,
+        currency: options.currency,
+        order_id: options.order_id 
+      });
+
       const razorpay = new window.Razorpay(options);
       
       razorpay.on('payment.failed', (response: any) => {
-        console.error('Payment failed:', response.error);
+        logError('Payment failed event triggered', response.error);
+        updateDebugInfo('paymentFailedResponse', response.error);
         const errorMessage = response.error?.description || response.error?.reason || 'Payment failed due to an unknown error';
         alert(`Payment failed: ${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
         setPaymentStatus('failed');
         setIsProcessingPayment(false);
       });
 
-      console.log('Opening Razorpay payment modal...');
+      logError('Opening Razorpay payment modal...');
+      updateDebugInfo('razorpayModalOpening', new Date().toISOString());
+      
+      // Additional check before opening
+      if (typeof razorpay.open !== 'function') {
+        throw new Error('Razorpay instance does not have open method');
+      }
+      
       razorpay.open();
+      updateDebugInfo('razorpayModalOpened', new Date().toISOString());
+      
     } catch (error) {
-      console.error('Error initiating payment:', error);
-      alert('Failed to initiate payment. Please check your internet connection and try again.');
+      logError('Error in payment initiation', error);
+      updateDebugInfo('paymentInitError', error);
+      
+      let errorMessage = 'Failed to initiate payment. ';
+      if (error instanceof Error) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += 'Please check your internet connection and try again.';
+      }
+      
+      alert(errorMessage);
       setPaymentStatus('failed');
       setIsProcessingPayment(false);
     }
@@ -581,16 +642,37 @@ Thank you for choosing Vestige!`;
 
                 <Separator />
 
-                {/* Debug Information (only in development) */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="space-y-2 p-3 bg-gray-100 rounded-lg text-xs">
-                    <p><strong>Debug Info:</strong></p>
-                    <p>Razorpay Loaded: {razorpayLoaded ? '✅' : '❌'}</p>
-                    <p>Order ID: {orderId}</p>
-                    <p>Payment Status: {paymentStatus}</p>
-                    <p>Processing: {isProcessingPayment ? 'Yes' : 'No'}</p>
+                {/* Enhanced Debug Information */}
+                <div className="space-y-2 p-3 bg-gray-100 rounded-lg text-xs">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Bug className="w-4 h-4" />
+                    <strong>Debug Information:</strong>
                   </div>
-                )}
+                  <p>Razorpay Loaded: {razorpayLoaded ? '✅' : '❌'}</p>
+                  <p>Order ID: {orderId}</p>
+                  <p>Payment Status: {paymentStatus}</p>
+                  <p>Processing: {isProcessingPayment ? 'Yes' : 'No'}</p>
+                  <p>API Key Valid: {RAZORPAY_KEY && RAZORPAY_KEY.length > 10 ? '✅' : '❌'}</p>
+                  <p>Window.Razorpay: {typeof window.Razorpay}</p>
+                  {Object.keys(debugInfo).length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer font-semibold">Debug Details</summary>
+                      <pre className="mt-2 text-xs bg-white p-2 rounded overflow-auto max-h-32">
+                        {JSON.stringify(debugInfo, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                  {errorLogs.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer font-semibold text-red-600">Error Logs ({errorLogs.length})</summary>
+                      <div className="mt-2 text-xs bg-red-50 p-2 rounded overflow-auto max-h-32">
+                        {errorLogs.slice(-10).map((log, index) => (
+                          <div key={index} className="mb-1 text-red-700">{log}</div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
 
                 {/* Payment Button */}
                 <div className="space-y-4">
