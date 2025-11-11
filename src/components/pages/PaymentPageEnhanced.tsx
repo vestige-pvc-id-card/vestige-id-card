@@ -14,11 +14,9 @@ import {
   Clock, 
   User, 
   Phone, 
-  MapPin, 
   Building2,
   AlertCircle,
-  ArrowLeft,
-  Bug
+  ArrowLeft
 } from 'lucide-react';
 
 interface PaymentPageProps {
@@ -66,8 +64,7 @@ export default function PaymentPage({ orderId: propOrderId }: PaymentPageProps) 
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending');
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
-  const [errorLogs, setErrorLogs] = useState<string[]>([]);
-  const [debugInfo, setDebugInfo] = useState<any>({});
+  const [scriptLoadError, setScriptLoadError] = useState<string | null>(null);
 
   // Get order ID from props, URL params, or location state
   const orderId = propOrderId || 
@@ -77,40 +74,31 @@ export default function PaymentPage({ orderId: propOrderId }: PaymentPageProps) 
   const CARD_PRICE = 100; // Price in INR
   const RAZORPAY_KEY = 'rzp_live_Re2NQGpbsbDDeC'; // Live Razorpay key
 
-  // Enhanced logging function
+  // Proper error logging function
   const logError = (message: string, error?: any) => {
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ${message}`;
-    console.error(logEntry, error);
-    setErrorLogs(prev => [...prev, logEntry + (error ? `: ${JSON.stringify(error)}` : '')]);
+    console.error(`[PaymentPage] ${message}`, error);
   };
 
-  // Enhanced debug info function
-  const updateDebugInfo = (key: string, value: any) => {
-    setDebugInfo(prev => ({ ...prev, [key]: value, lastUpdated: new Date().toISOString() }));
+  // Info logging function
+  const logInfo = (message: string, data?: any) => {
+    console.log(`[PaymentPage] ${message}`, data);
   };
 
   useEffect(() => {
-    logError('PaymentPage mounted', { orderId, propOrderId, locationSearch: location.search });
-    updateDebugInfo('initialLoad', { orderId, propOrderId, locationSearch: location.search });
-    
     if (!orderId) {
       logError('No order ID found, redirecting to apply page');
       navigate('/apply');
       return;
     }
+    
     loadOrder();
     loadRazorpayScript();
   }, [orderId]);
 
   const loadRazorpayScript = () => {
-    logError('Starting Razorpay script load process');
-    updateDebugInfo('scriptLoadStart', new Date().toISOString());
-    
     // Check if Razorpay is already loaded
     if (window.Razorpay) {
-      logError('Razorpay already loaded from window object');
-      updateDebugInfo('razorpaySource', 'window.Razorpay already exists');
+      logInfo('Razorpay already loaded');
       setRazorpayLoaded(true);
       return;
     }
@@ -118,66 +106,64 @@ export default function PaymentPage({ orderId: propOrderId }: PaymentPageProps) 
     // Check if script is already being loaded
     const existingScript = document.querySelector('script[src*="razorpay"]');
     if (existingScript) {
-      logError('Razorpay script already exists in DOM, waiting for load');
-      updateDebugInfo('razorpaySource', 'existing script found');
+      logInfo('Razorpay script already exists, waiting for load');
       existingScript.addEventListener('load', () => {
-        logError('Existing Razorpay script loaded successfully');
-        updateDebugInfo('scriptLoadComplete', new Date().toISOString());
+        logInfo('Existing Razorpay script loaded successfully');
         setRazorpayLoaded(true);
+        setScriptLoadError(null);
       });
       existingScript.addEventListener('error', (error) => {
-        logError('Existing Razorpay script failed to load', error);
+        const errorMsg = 'Failed to load existing Razorpay script';
+        logError(errorMsg, error);
+        setScriptLoadError(errorMsg);
       });
       return;
     }
 
-    logError('Creating new Razorpay script element');
-    updateDebugInfo('razorpaySource', 'creating new script');
+    logInfo('Creating new Razorpay script element');
     
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
     script.onload = () => {
-      logError('Razorpay script loaded successfully');
-      updateDebugInfo('scriptLoadComplete', new Date().toISOString());
-      updateDebugInfo('windowRazorpayExists', !!window.Razorpay);
+      logInfo('Razorpay script loaded successfully');
       setRazorpayLoaded(true);
+      setScriptLoadError(null);
     };
     script.onerror = (error) => {
-      logError('Failed to load Razorpay script', error);
-      updateDebugInfo('scriptLoadError', error);
-      alert('Failed to load payment system. Please check your internet connection and try again.');
+      const errorMsg = 'Failed to load Razorpay script';
+      logError(errorMsg, error);
+      setScriptLoadError(errorMsg);
     };
     
     document.body.appendChild(script);
-    updateDebugInfo('scriptAppended', new Date().toISOString());
   };
 
   const loadOrder = async () => {
+    if (!orderId) {
+      logError('Cannot load order: orderId is missing');
+      navigate('/apply');
+      return;
+    }
+
     try {
       setIsLoading(true);
-      logError('Loading order data', { orderId });
-      updateDebugInfo('orderLoadStart', new Date().toISOString());
+      logInfo('Loading order data', { orderId });
       
       const orderData = await BaseCrudService.getById<IDCardOrders>('idcardorders', orderId);
       
       if (orderData) {
-        logError('Order loaded successfully', { orderData: { ...orderData, customerPhoto: '[REDACTED]' } });
-        updateDebugInfo('orderLoaded', true);
-        updateDebugInfo('orderStatus', orderData.orderStatus);
+        logInfo('Order loaded successfully');
         setOrder(orderData);
       } else {
-        logError('Order not found, redirecting to apply page');
-        updateDebugInfo('orderLoaded', false);
+        logError('Order not found');
         navigate('/apply');
       }
     } catch (error) {
       logError('Error loading order', error);
-      updateDebugInfo('orderLoadError', error);
       navigate('/apply');
     } finally {
       setIsLoading(false);
-      updateDebugInfo('orderLoadComplete', new Date().toISOString());
     }
   };
 
@@ -205,72 +191,60 @@ Track your order status at: ${window.location.origin}
 Thank you for choosing Vestige!`;
 
       // For production, implement actual Twilio WhatsApp API call here
-      // Example:
-      // const response = await fetch('/api/send-whatsapp', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     to: order?.mobileNumber,
-      //     message: message
-      //   })
-      // });
-      
-      console.log('WhatsApp confirmation message:', message);
-      console.log('To be sent to:', order?.mobileNumber);
+      logInfo('WhatsApp confirmation prepared', { to: order?.mobileNumber });
       
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       return true;
     } catch (error) {
-      console.error('Error sending WhatsApp confirmation:', error);
+      logError('Error preparing WhatsApp confirmation', error);
       return false;
     }
   };
 
   const handlePayment = async () => {
-    logError('Payment initiation started');
-    updateDebugInfo('paymentInitStart', new Date().toISOString());
-    
-    // Enhanced validation with detailed logging
+    // Comprehensive validation with user-friendly messages
     if (!razorpayLoaded) {
-      logError('Razorpay not loaded - payment cannot proceed');
-      updateDebugInfo('paymentBlockReason', 'razorpay_not_loaded');
       alert('Payment system is still loading. Please wait a moment and try again.');
       return;
     }
 
     if (!order) {
-      logError('Order data missing - payment cannot proceed');
-      updateDebugInfo('paymentBlockReason', 'order_missing');
       alert('Order information is missing. Please go back and try again.');
       return;
     }
 
     if (!window.Razorpay) {
       logError('window.Razorpay not available despite razorpayLoaded being true');
-      updateDebugInfo('paymentBlockReason', 'window_razorpay_missing');
-      updateDebugInfo('windowRazorpayType', typeof window.Razorpay);
       alert('Payment system failed to load. Please refresh the page and try again.');
+      return;
+    }
+
+    // Validate required order fields
+    if (!order.customerName || !order.vestigeId || !order.mobileNumber) {
+      logError('Missing required order fields', {
+        hasName: !!order.customerName,
+        hasVestigeId: !!order.vestigeId,
+        hasMobile: !!order.mobileNumber
+      });
+      alert('Order information is incomplete. Please go back and fill all required fields.');
       return;
     }
 
     // Validate API key
     if (!RAZORPAY_KEY || RAZORPAY_KEY.length < 10) {
-      logError('Invalid Razorpay API key', { keyLength: RAZORPAY_KEY?.length });
-      updateDebugInfo('paymentBlockReason', 'invalid_api_key');
+      logError('Invalid Razorpay API key');
       alert('Payment configuration error. Please contact support.');
       return;
     }
 
     setIsProcessingPayment(true);
     setPaymentStatus('processing');
-    updateDebugInfo('paymentProcessingStart', new Date().toISOString());
 
     try {
       const paymentId = generatePaymentId();
-      logError('Generated payment ID', { paymentId });
-      updateDebugInfo('generatedPaymentId', paymentId);
+      logInfo('Initiating payment', { paymentId });
       
       const options: RazorpayOptions = {
         key: RAZORPAY_KEY,
@@ -281,18 +255,15 @@ Thank you for choosing Vestige!`;
         order_id: paymentId,
         handler: async (response: any) => {
           try {
-            logError('Payment handler called - payment successful', response);
-            updateDebugInfo('paymentResponse', response);
+            logInfo('Payment successful', { paymentId: response.razorpay_payment_id });
             
-            // Update order status to paid with payment details
+            // Update order status to paid
             await BaseCrudService.update('idcardorders', {
               _id: order._id,
               orderStatus: 'Paid',
-              // Note: Consider adding payment fields to your schema for production
             });
 
-            logError('Order status updated to Paid');
-            updateDebugInfo('orderStatusUpdated', true);
+            logInfo('Order status updated to Paid');
 
             // Send WhatsApp confirmation
             await sendWhatsAppConfirmation(response.razorpay_payment_id || paymentId);
@@ -306,7 +277,6 @@ Thank you for choosing Vestige!`;
 
           } catch (error) {
             logError('Error in payment success handler', error);
-            updateDebugInfo('paymentHandlerError', error);
             alert('Payment was successful but there was an issue updating your order. Please contact support with your payment ID: ' + (response.razorpay_payment_id || paymentId));
             setPaymentStatus('failed');
           }
@@ -321,8 +291,7 @@ Thank you for choosing Vestige!`;
         },
         modal: {
           ondismiss: () => {
-            logError('Payment modal dismissed by user');
-            updateDebugInfo('paymentDismissed', new Date().toISOString());
+            logInfo('Payment modal dismissed by user');
             setIsProcessingPayment(false);
             setPaymentStatus('pending');
           }
@@ -335,32 +304,19 @@ Thank you for choosing Vestige!`;
         remember_customer: false
       };
 
-      logError('Creating Razorpay instance with options', { 
-        key: RAZORPAY_KEY.substring(0, 10) + '...', 
-        amount: options.amount,
-        currency: options.currency,
-        order_id: options.order_id 
-      });
-      updateDebugInfo('razorpayOptions', { 
-        key: RAZORPAY_KEY.substring(0, 10) + '...', 
-        amount: options.amount,
-        currency: options.currency,
-        order_id: options.order_id 
-      });
+      logInfo('Creating Razorpay instance');
 
       const razorpay = new window.Razorpay(options);
       
       razorpay.on('payment.failed', (response: any) => {
-        logError('Payment failed event triggered', response.error);
-        updateDebugInfo('paymentFailedResponse', response.error);
+        logError('Payment failed', response.error);
         const errorMessage = response.error?.description || response.error?.reason || 'Payment failed due to an unknown error';
         alert(`Payment failed: ${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
         setPaymentStatus('failed');
         setIsProcessingPayment(false);
       });
 
-      logError('Opening Razorpay payment modal...');
-      updateDebugInfo('razorpayModalOpening', new Date().toISOString());
+      logInfo('Opening Razorpay payment modal');
       
       // Additional check before opening
       if (typeof razorpay.open !== 'function') {
@@ -368,11 +324,9 @@ Thank you for choosing Vestige!`;
       }
       
       razorpay.open();
-      updateDebugInfo('razorpayModalOpened', new Date().toISOString());
       
     } catch (error) {
       logError('Error in payment initiation', error);
-      updateDebugInfo('paymentInitError', error);
       
       let errorMessage = 'Failed to initiate payment. ';
       if (error instanceof Error) {
@@ -584,6 +538,18 @@ Thank you for choosing Vestige!`;
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Script Load Error */}
+                {scriptLoadError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <p className="text-sm font-paragraph text-red-700">
+                        Payment system failed to load. Please refresh the page and try again.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Security Features */}
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
@@ -642,43 +608,11 @@ Thank you for choosing Vestige!`;
 
                 <Separator />
 
-                {/* Enhanced Debug Information */}
-                <div className="space-y-2 p-3 bg-gray-100 rounded-lg text-xs">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Bug className="w-4 h-4" />
-                    <strong>Debug Information:</strong>
-                  </div>
-                  <p>Razorpay Loaded: {razorpayLoaded ? '✅' : '❌'}</p>
-                  <p>Order ID: {orderId}</p>
-                  <p>Payment Status: {paymentStatus}</p>
-                  <p>Processing: {isProcessingPayment ? 'Yes' : 'No'}</p>
-                  <p>API Key Valid: {RAZORPAY_KEY && RAZORPAY_KEY.length > 10 ? '✅' : '❌'}</p>
-                  <p>Window.Razorpay: {typeof window.Razorpay}</p>
-                  {Object.keys(debugInfo).length > 0 && (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer font-semibold">Debug Details</summary>
-                      <pre className="mt-2 text-xs bg-white p-2 rounded overflow-auto max-h-32">
-                        {JSON.stringify(debugInfo, null, 2)}
-                      </pre>
-                    </details>
-                  )}
-                  {errorLogs.length > 0 && (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer font-semibold text-red-600">Error Logs ({errorLogs.length})</summary>
-                      <div className="mt-2 text-xs bg-red-50 p-2 rounded overflow-auto max-h-32">
-                        {errorLogs.slice(-10).map((log, index) => (
-                          <div key={index} className="mb-1 text-red-700">{log}</div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                </div>
-
                 {/* Payment Button */}
                 <div className="space-y-4">
                   <Button
                     onClick={handlePayment}
-                    disabled={isProcessingPayment || !razorpayLoaded}
+                    disabled={isProcessingPayment || !razorpayLoaded || !!scriptLoadError}
                     className="w-full bg-brand-green text-white hover:bg-brand-green/90 h-12 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {!razorpayLoaded ? (
@@ -691,6 +625,8 @@ Thank you for choosing Vestige!`;
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                         Processing...
                       </>
+                    ) : scriptLoadError ? (
+                      'Payment System Error - Please Refresh'
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5 mr-2" />
