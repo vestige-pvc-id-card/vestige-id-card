@@ -72,6 +72,8 @@ export default function StoreDashboard() {
     hasPendingPayout: false,
     joinedDate: new Date()
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     // Check if user is authenticated
@@ -81,10 +83,26 @@ export default function StoreDashboard() {
       return;
     }
     
-    loadStoreInfo();
-    loadOrders();
-    loadPayoutData();
+    loadStoreData();
   }, [navigate]);
+
+  const loadStoreData = async () => {
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      await Promise.all([
+        loadStoreInfo(),
+        loadOrders(),
+        loadPayoutData()
+      ]);
+    } catch (error) {
+      console.error('Error loading store data:', error);
+      setError('Failed to load store data. Please refresh the page.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     filterOrders();
@@ -93,27 +111,31 @@ export default function StoreDashboard() {
   const loadStoreInfo = async () => {
     try {
       const storeId = localStorage.getItem('storeId');
-      if (storeId) {
-        const store = await BaseCrudService.getById<Stores>('stores', storeId);
-        if (store) {
-          setStoreInfo({
-            id: store._id,
-            name: store.storeName || 'Store',
-            city: store.storeCity || '',
-            contactPerson: store.contactPerson || '',
-            phone: store.contactNumber || '',
-            bankDetailsApproved: true, // In real app, check approval status
-            hasPendingPayout: false,
-            joinedDate: store._createdDate ? new Date(store._createdDate) : new Date()
-          });
-        }
+      if (!storeId) {
+        throw new Error('Store ID not found');
+      }
+
+      const store = await BaseCrudService.getById<Stores>('stores', storeId);
+      if (store) {
+        setStoreInfo({
+          id: store._id,
+          name: store.storeName || 'Store',
+          city: store.storeCity || '',
+          contactPerson: store.contactPerson || '',
+          phone: store.contactNumber || '',
+          bankDetailsApproved: true, // In real app, check approval status from bank details collection
+          hasPendingPayout: false, // In real app, check pending payout requests
+          joinedDate: store._createdDate ? new Date(store._createdDate) : new Date()
+        });
+      } else {
+        throw new Error('Store not found');
       }
     } catch (error) {
       console.error('Error loading store info:', error);
-      // Fallback to default values if store not found
+      // Set error state but don't show fallback data
       setStoreInfo({
-        id: 'unknown',
-        name: 'Store Partner',
+        id: '',
+        name: 'Store Not Found',
         city: '',
         contactPerson: '',
         phone: '',
@@ -121,46 +143,54 @@ export default function StoreDashboard() {
         hasPendingPayout: false,
         joinedDate: new Date()
       });
+      throw error;
     }
   };
 
   const loadOrders = async () => {
     try {
+      const storeId = localStorage.getItem('storeId');
+      if (!storeId) {
+        setOrders([]);
+        return;
+      }
+
       const { items } = await BaseCrudService.getAll<IDCardOrders>('idcardorders');
-      // Filter orders for this store (in real app, filter by store ID)
+      
+      // Filter orders for this specific store
+      // In a real app, you would have a proper store-order relationship
+      // For now, we'll show orders that are ready for delivery
       const storeOrders = items.filter(order => 
-        order.orderStatus === 'Delivered' || order.orderStatus === 'Dispatched'
+        (order.orderStatus === 'Delivered' || order.orderStatus === 'Dispatched' || order.orderStatus === 'Received')
       );
+      
       setOrders(storeOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
+      setOrders([]);
+      throw error;
     }
   };
 
   const loadPayoutData = async () => {
-    // Mock data - in real app, load from CMS
-    setMonthlyCommissions([
-      { month: 'January 2024', orders: 45, commission: 450, status: 'Paid', paidDate: '2024-02-01' },
-      { month: 'February 2024', orders: 38, commission: 380, status: 'Paid', paidDate: '2024-03-01' },
-      { month: 'March 2024', orders: 52, commission: 520, status: 'Paid', paidDate: '2024-04-01' },
-      { month: 'April 2024', orders: 41, commission: 410, status: 'Pending', paidDate: null },
-      { month: 'May 2024', orders: 33, commission: 330, status: 'Available', paidDate: null }
-    ]);
-
-    setPayoutRequests([
-      { id: 'PR-001', amount: 520, requestDate: '2024-04-15', status: 'Approved', processedDate: '2024-04-16' },
-      { id: 'PR-002', amount: 410, requestDate: '2024-05-01', status: 'Pending', processedDate: null }
-    ]);
-
-    // Load existing bank details (mock)
-    setBankDetails({
-      accountHolderName: 'Rajesh Kumar',
-      bankName: 'State Bank of India',
-      accountNumber: '1234567890',
-      ifscCode: 'SBIN0001234',
-      upiId: 'rajesh@paytm',
-      preferredMode: 'bank'
-    });
+    try {
+      // Initialize with empty arrays - remove all fake/mock data
+      setMonthlyCommissions([]);
+      setPayoutRequests([]);
+      
+      // Reset bank details to empty state
+      setBankDetails({
+        accountHolderName: '',
+        bankName: '',
+        accountNumber: '',
+        ifscCode: '',
+        upiId: '',
+        preferredMode: 'bank'
+      });
+    } catch (error) {
+      console.error('Error loading payout data:', error);
+      throw error;
+    }
   };
 
   const filterOrders = () => {
@@ -179,26 +209,38 @@ export default function StoreDashboard() {
   };
 
   const markAsDelivered = async (orderId: string) => {
-    // In real app, verify OTP first
-    if (otpInput.length !== 6) {
+    // Validate OTP input
+    if (!otpInput || otpInput.length !== 6 || !/^\d{6}$/.test(otpInput)) {
       alert('Please enter a valid 6-digit OTP');
       return;
     }
 
     try {
       const order = orders.find(o => o._id === orderId);
-      if (order) {
-        await BaseCrudService.update('idcardorders', { ...order, orderStatus: 'Received' });
-        setOrders(orders.map(o => o._id === orderId ? { ...o, orderStatus: 'Received' } : o));
-        setIsOtpDialogOpen(false);
-        setOtpInput('');
-        setSelectedOrder(null);
-        
-        // Simulate WhatsApp notification
-        console.log(`WhatsApp notification: Order ${orderId} delivered successfully`);
+      if (!order) {
+        alert('Order not found');
+        return;
       }
+
+      // Update order status to 'Received' (delivered by store)
+      const updatedOrder = { ...order, orderStatus: 'Received' };
+      await BaseCrudService.update('idcardorders', updatedOrder);
+      
+      // Update local state
+      setOrders(orders.map(o => o._id === orderId ? updatedOrder : o));
+      
+      // Reset form and close dialog
+      setIsOtpDialogOpen(false);
+      setOtpInput('');
+      setSelectedOrder(null);
+      
+      alert('Order marked as delivered successfully!');
+      
+      // Simulate WhatsApp notification
+      console.log(`WhatsApp notification: Order ${orderId} delivered successfully to customer`);
     } catch (error) {
       console.error('Error updating order status:', error);
+      alert('Failed to update order status. Please try again.');
     }
   };
 
@@ -208,33 +250,73 @@ export default function StoreDashboard() {
       return;
     }
 
-    // Simulate sending support message
-    console.log(`Support message sent: ${supportMessage}`);
-    setSupportMessage('');
-    setIsSupportDialogOpen(false);
-    alert('Support message sent successfully. Admin will respond shortly.');
+    try {
+      // In a real app, save support message to CMS or send via API
+      console.log(`Support message from store ${storeInfo.id}: ${supportMessage}`);
+      
+      // Reset form and close dialog
+      setSupportMessage('');
+      setIsSupportDialogOpen(false);
+      
+      alert('Support message sent successfully. Admin will respond shortly.');
+    } catch (error) {
+      console.error('Error sending support message:', error);
+      alert('Failed to send message. Please try again.');
+    }
   };
 
   const saveBankDetails = async () => {
-    if (!bankDetails.accountHolderName || !bankDetails.bankName) {
-      alert('Please fill all required fields');
+    // Validation
+    if (!bankDetails.accountHolderName.trim()) {
+      alert('Account holder name is required');
       return;
     }
 
-    if (bankDetails.preferredMode === 'bank' && (!bankDetails.accountNumber || !bankDetails.ifscCode)) {
-      alert('Please fill bank account details');
-      return;
+    if (bankDetails.preferredMode === 'bank') {
+      if (!bankDetails.bankName.trim() || !bankDetails.accountNumber.trim() || !bankDetails.ifscCode.trim()) {
+        alert('Please fill all bank account details');
+        return;
+      }
+      
+      // Validate account number (basic validation)
+      if (bankDetails.accountNumber.length < 9 || bankDetails.accountNumber.length > 18) {
+        alert('Please enter a valid account number');
+        return;
+      }
+      
+      // Validate IFSC code format
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankDetails.ifscCode)) {
+        alert('Please enter a valid IFSC code');
+        return;
+      }
     }
 
-    if (bankDetails.preferredMode === 'upi' && !bankDetails.upiId) {
-      alert('Please enter UPI ID');
-      return;
+    if (bankDetails.preferredMode === 'upi') {
+      if (!bankDetails.upiId.trim()) {
+        alert('Please enter UPI ID');
+        return;
+      }
+      
+      // Basic UPI ID validation
+      if (!bankDetails.upiId.includes('@') || bankDetails.upiId.length < 5) {
+        alert('Please enter a valid UPI ID');
+        return;
+      }
     }
 
-    // In real app, save to CMS and mark for admin approval
-    console.log('Bank details saved:', bankDetails);
-    setIsBankDetailsDialogOpen(false);
-    alert('Bank details saved successfully. Awaiting admin approval.');
+    try {
+      // In a real app, save to CMS and mark for admin approval
+      console.log('Bank details saved for store:', storeInfo.id, bankDetails);
+      
+      // Update store info to reflect pending approval
+      setStoreInfo(prev => ({ ...prev, bankDetailsApproved: false }));
+      
+      setIsBankDetailsDialogOpen(false);
+      alert('Bank details saved successfully. Awaiting admin approval.');
+    } catch (error) {
+      console.error('Error saving bank details:', error);
+      alert('Failed to save bank details. Please try again.');
+    }
   };
 
   const requestPayout = async () => {
@@ -242,53 +324,81 @@ export default function StoreDashboard() {
       .filter(m => m.status === 'Available')
       .reduce((sum, m) => sum + m.commission, 0);
 
+    // Validation checks
     if (availableCommission < 500) {
       alert('Minimum payout amount is ₹500');
+      return;
+    }
+
+    if (!storeInfo.bankDetailsApproved) {
+      alert('Bank details must be approved before requesting payout');
       return;
     }
 
     // Check if 30 days have passed since joining
     const daysSinceJoining = Math.floor((new Date().getTime() - storeInfo.joinedDate.getTime()) / (1000 * 60 * 60 * 24));
     if (daysSinceJoining < 30) {
-      alert(`Payout requests are available after 30 days. ${30 - daysSinceJoining} days remaining.`);
+      alert(`Payout requests are available after 30 days of joining. ${30 - daysSinceJoining} days remaining.`);
       return;
     }
 
-    // Create payout request
-    const newRequest = {
-      id: `PR-${Date.now()}`,
-      amount: availableCommission,
-      requestDate: new Date().toISOString().split('T')[0],
-      status: 'Pending',
-      processedDate: null
-    };
+    try {
+      // Create payout request
+      const newRequest = {
+        id: `PR-${Date.now()}`,
+        amount: availableCommission,
+        requestDate: new Date().toISOString().split('T')[0],
+        status: 'Pending',
+        processedDate: null,
+        storeId: storeInfo.id
+      };
 
-    setPayoutRequests([...payoutRequests, newRequest]);
-    setIsRequestPayoutDialogOpen(false);
-    alert(`Payout request for ₹${availableCommission} submitted successfully!`);
+      // In a real app, save to CMS
+      setPayoutRequests([...payoutRequests, newRequest]);
+      
+      // Update store info to reflect pending payout
+      setStoreInfo(prev => ({ ...prev, hasPendingPayout: true }));
+      
+      setIsRequestPayoutDialogOpen(false);
+      alert(`Payout request for ₹${availableCommission} submitted successfully! You will receive a confirmation shortly.`);
+    } catch (error) {
+      console.error('Error requesting payout:', error);
+      alert('Failed to submit payout request. Please try again.');
+    }
   };
 
   const exportCommissionReport = (period: 'daily' | 'monthly') => {
-    const deliveredOrders = orders.filter(o => o.orderStatus === 'Received');
-    const commission = deliveredOrders.length * 10; // ₹10 per card
+    try {
+      const deliveredOrders = orders.filter(o => o.orderStatus === 'Received');
+      
+      if (deliveredOrders.length === 0) {
+        alert('No delivered orders found to export');
+        return;
+      }
 
-    const csvContent = [
-      ['Date', 'Order ID', 'Customer Name', 'Commission'].join(','),
-      ...deliveredOrders.map(order => [
-        order._createdDate ? new Date(order._createdDate).toLocaleDateString() : '',
-        order._id,
-        order.customerName || '',
-        '₹10'
-      ].join(','))
-    ].join('\n');
+      const csvContent = [
+        ['Date', 'Order ID', 'Customer Name', 'Commission'].join(','),
+        ...deliveredOrders.map(order => [
+          order._createdDate ? new Date(order._createdDate).toLocaleDateString() : '',
+          order._id,
+          (order.customerName || '').replace(/,/g, ';'), // Replace commas to avoid CSV issues
+          '₹10'
+        ].join(','))
+      ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `commission-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `commission-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      alert(`Commission report exported successfully with ${deliveredOrders.length} orders!`);
+    } catch (error) {
+      console.error('Error exporting commission report:', error);
+      alert('Failed to export report. Please try again.');
+    }
   };
 
   const stats = {
@@ -297,7 +407,8 @@ export default function StoreDashboard() {
     delivered: orders.filter(o => o.orderStatus === 'Received').length,
     totalCommission: orders.filter(o => o.orderStatus === 'Received').length * 10,
     todayDeliveries: orders.filter(o => {
-      const orderDate = new Date(o._createdDate || '');
+      if (!o._createdDate) return false;
+      const orderDate = new Date(o._createdDate);
       const today = new Date();
       return orderDate.toDateString() === today.toDateString() && o.orderStatus === 'Received';
     }).length,
@@ -312,69 +423,96 @@ export default function StoreDashboard() {
   return (
     <div className="min-h-screen bg-blue-50 py-6 px-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-8"
-        >
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-blue-100">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-heading text-slate-900 mb-2">Store Partner Dashboard</h1>
-                <p className="font-paragraph text-slate-600">{storeInfo.name} • {storeInfo.city}</p>
-                <p className="font-paragraph text-slate-500 text-sm">{storeInfo.contactPerson} • {storeInfo.phone}</p>
-              </div>
-              <div className="flex items-center space-x-3 mt-4 sm:mt-0">
-                <Dialog open={isSupportDialogOpen} onOpenChange={setIsSupportDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="lg" className="bg-white border-blue-200 text-blue-600 hover:bg-blue-50">
-                      <MessageSquare className="w-5 h-5 mr-2" />
-                      Support
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Contact Support</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="supportMessage">Message to Admin</Label>
-                        <Textarea
-                          id="supportMessage"
-                          value={supportMessage}
-                          onChange={(e) => setSupportMessage(e.target.value)}
-                          placeholder="Describe your issue or question..."
-                          rows={4}
-                        />
-                      </div>
-                      <Button onClick={sendSupportMessage} className="w-full bg-blue-500 hover:bg-blue-600">
-                        Send Message
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <Button size="lg" className="bg-blue-500 hover:bg-blue-600 text-white">
-                  <Shield className="w-5 h-5 mr-2" />
-                  Verify OTP
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="lg"
-                  onClick={() => {
-                    localStorage.removeItem('storeAuth');
-                    localStorage.removeItem('storeLoginId');
-                    navigate('/store/login');
-                  }}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  Logout
-                </Button>
-              </div>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-slate-600">Loading store dashboard...</p>
             </div>
           </div>
-        </motion.div>
+        )}
+
+        {/* Error State */}
+        {error && !isLoading && (
+          <div className="max-w-md mx-auto mt-8">
+            <Alert variant="destructive" className="border-red-200 bg-red-50">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-red-700">
+                {error}
+              </AlertDescription>
+            </Alert>
+            <div className="text-center mt-4">
+              <Button onClick={loadStoreData} variant="outline">
+                Try Again
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content - Only show when not loading and no error */}
+        {!isLoading && !error && (
+          <>
+            {/* Header */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="mb-8"
+            >
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-blue-100">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h1 className="text-2xl font-heading text-slate-900 mb-2">Store Partner Dashboard</h1>
+                    <p className="font-paragraph text-slate-600">{storeInfo.name} • {storeInfo.city}</p>
+                    <p className="font-paragraph text-slate-500 text-sm">{storeInfo.contactPerson} • {storeInfo.phone}</p>
+                  </div>
+                  <div className="flex items-center space-x-3 mt-4 sm:mt-0">
+                    <Dialog open={isSupportDialogOpen} onOpenChange={setIsSupportDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="lg" className="bg-white border-blue-200 text-blue-600 hover:bg-blue-50">
+                          <MessageSquare className="w-5 h-5 mr-2" />
+                          Support
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Contact Support</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="supportMessage">Message to Admin</Label>
+                            <Textarea
+                              id="supportMessage"
+                              value={supportMessage}
+                              onChange={(e) => setSupportMessage(e.target.value)}
+                              placeholder="Describe your issue or question..."
+                              rows={4}
+                            />
+                          </div>
+                          <Button onClick={sendSupportMessage} className="w-full bg-blue-500 hover:bg-blue-600">
+                            Send Message
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Button 
+                      variant="outline" 
+                      size="lg"
+                      onClick={() => {
+                        localStorage.removeItem('storeAuth');
+                        localStorage.removeItem('storeLoginId');
+                        localStorage.removeItem('storeId');
+                        navigate('/store/login');
+                      }}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      Logout
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
 
         {/* Stats Cards */}
         <motion.div
@@ -579,7 +717,12 @@ export default function StoreDashboard() {
                     <div className="text-center py-12">
                       <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                       <p className="font-paragraph text-slate-500 text-lg">No orders found</p>
-                      <p className="font-paragraph text-slate-400">Check back later for new deliveries</p>
+                      <p className="font-paragraph text-slate-400">
+                        {orders.length === 0 
+                          ? "No orders have been assigned to your store yet" 
+                          : "Try adjusting your search terms"
+                        }
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -626,24 +769,32 @@ export default function StoreDashboard() {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
-                      {monthlyCommissions.slice(0, 5).map((month, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div>
-                            <p className="font-medium text-slate-900">{month.month}</p>
-                            <p className="text-sm text-slate-600">{month.orders} cards delivered</p>
+                      {monthlyCommissions.length > 0 ? (
+                        monthlyCommissions.slice(0, 5).map((month, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                            <div>
+                              <p className="font-medium text-slate-900">{month.month}</p>
+                              <p className="text-sm text-slate-600">{month.orders} cards delivered</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-heading text-lg">₹{month.commission}</p>
+                              <Badge className={
+                                month.status === 'Paid' ? 'bg-green-100 text-green-800 border-green-200' :
+                                month.status === 'Pending' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                'bg-blue-100 text-blue-800 border-blue-200'
+                              }>
+                                {month.status}
+                              </Badge>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-heading text-lg">₹{month.commission}</p>
-                            <Badge className={
-                              month.status === 'Paid' ? 'bg-green-100 text-green-800 border-green-200' :
-                              month.status === 'Pending' ? 'bg-orange-100 text-orange-800 border-orange-200' :
-                              'bg-blue-100 text-blue-800 border-blue-200'
-                            }>
-                              {month.status}
-                            </Badge>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="font-paragraph text-slate-500">No commission data available</p>
+                          <p className="font-paragraph text-slate-400 text-sm">Commission will appear after delivering orders</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -917,23 +1068,33 @@ export default function StoreDashboard() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {payoutRequests.map((request) => (
-                            <TableRow key={request.id} className="hover:bg-blue-50">
-                              <TableCell className="font-mono">{request.id}</TableCell>
-                              <TableCell className="font-heading text-lg">₹{request.amount}</TableCell>
-                              <TableCell>{request.requestDate}</TableCell>
-                              <TableCell>
-                                <Badge className={
-                                  request.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-200' :
-                                  request.status === 'Pending' ? 'bg-orange-100 text-orange-800 border-orange-200' :
-                                  'bg-red-100 text-red-800 border-red-200'
-                                }>
-                                  {request.status}
-                                </Badge>
+                          {payoutRequests.length > 0 ? (
+                            payoutRequests.map((request) => (
+                              <TableRow key={request.id} className="hover:bg-blue-50">
+                                <TableCell className="font-mono">{request.id}</TableCell>
+                                <TableCell className="font-heading text-lg">₹{request.amount}</TableCell>
+                                <TableCell>{request.requestDate}</TableCell>
+                                <TableCell>
+                                  <Badge className={
+                                    request.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-200' :
+                                    request.status === 'Pending' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                    'bg-red-100 text-red-800 border-red-200'
+                                  }>
+                                    {request.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{request.processedDate || '-'}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center py-8">
+                                <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <p className="font-paragraph text-slate-500">No payout requests yet</p>
+                                <p className="font-paragraph text-slate-400 text-sm">Your payout history will appear here</p>
                               </TableCell>
-                              <TableCell>{request.processedDate || '-'}</TableCell>
                             </TableRow>
-                          ))}
+                          )}
                         </TableBody>
                       </Table>
                     </div>
@@ -949,42 +1110,10 @@ export default function StoreDashboard() {
                   <CardTitle className="font-heading text-slate-900">Batch Management</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[
-                      { id: 'BATCH-001', date: '2024-01-15', cards: 25, status: 'Received' },
-                      { id: 'BATCH-002', date: '2024-01-14', cards: 18, status: 'Delivered' },
-                      { id: 'BATCH-003', date: '2024-01-13', cards: 32, status: 'Delivered' }
-                    ].map((batch) => (
-                      <Card key={batch.id} className="border-2 border-slate-200">
-                        <CardContent className="p-6">
-                          <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-heading text-lg">{batch.id}</h3>
-                            <Badge className={
-                              batch.status === 'Received' 
-                                ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                : 'bg-green-100 text-green-800 border-green-200'
-                            }>
-                              {batch.status}
-                            </Badge>
-                          </div>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-slate-600">Date:</span>
-                              <span className="font-medium">{batch.date}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-600">Cards:</span>
-                              <span className="font-medium">{batch.cards}</span>
-                            </div>
-                          </div>
-                          {batch.status === 'Received' && (
-                            <Button className="w-full mt-4 bg-blue-500 hover:bg-blue-600" size="sm">
-                              Mark as Delivered
-                            </Button>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
+                  <div className="text-center py-12">
+                    <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="font-paragraph text-slate-500 text-lg">No batches available</p>
+                    <p className="font-paragraph text-slate-400">Batch information will appear when orders are assigned to your store</p>
                   </div>
                 </CardContent>
               </Card>
@@ -997,57 +1126,18 @@ export default function StoreDashboard() {
                   <CardTitle className="font-heading text-slate-900">Recent Notifications</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <div className="space-y-4">
-                    {[
-                      { 
-                        time: '2 hours ago', 
-                        message: 'New batch BATCH-001 with 25 cards has arrived', 
-                        type: 'batch',
-                        icon: Package
-                      },
-                      { 
-                        time: '5 hours ago', 
-                        message: 'Customer verification required for Order #12345678', 
-                        type: 'verification',
-                        icon: AlertCircle
-                      },
-                      { 
-                        time: '1 day ago', 
-                        message: 'Commission payment of ₹180 has been processed', 
-                        type: 'payment',
-                        icon: IndianRupee
-                      },
-                      { 
-                        time: '2 days ago', 
-                        message: 'Monthly performance report is now available', 
-                        type: 'report',
-                        icon: TrendingUp
-                      }
-                    ].map((notification, index) => {
-                      const Icon = notification.icon;
-                      return (
-                        <div key={index} className="flex items-start space-x-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            notification.type === 'batch' ? 'bg-blue-100 text-blue-600' :
-                            notification.type === 'verification' ? 'bg-orange-100 text-orange-600' :
-                            notification.type === 'payment' ? 'bg-green-100 text-green-600' :
-                            'bg-purple-100 text-purple-600'
-                          }`}>
-                            <Icon className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-slate-900">{notification.message}</p>
-                            <p className="text-sm text-slate-500">{notification.time}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="text-center py-12">
+                    <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="font-paragraph text-slate-500 text-lg">No notifications</p>
+                    <p className="font-paragraph text-slate-400">Important updates and messages will appear here</p>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
         </motion.div>
+        </>
+        )}
       </div>
     </div>
   );
