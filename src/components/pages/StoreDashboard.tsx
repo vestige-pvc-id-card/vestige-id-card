@@ -33,7 +33,12 @@ import {
   Lock,
   Edit,
   Eye,
-  Wallet
+  Wallet,
+  Filter,
+  X,
+  SortAsc,
+  SortDesc,
+  CalendarDays
 } from 'lucide-react';
 
 export default function StoreDashboard() {
@@ -46,6 +51,34 @@ export default function StoreDashboard() {
   const [isOtpDialogOpen, setIsOtpDialogOpen] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
+  
+  // Filter states
+  const [orderFilters, setOrderFilters] = useState({
+    status: 'all',
+    dateRange: 'all',
+    sortBy: 'date',
+    sortOrder: 'desc' as 'asc' | 'desc'
+  });
+  
+  const [commissionFilters, setCommissionFilters] = useState({
+    status: 'all',
+    period: 'all',
+    sortBy: 'date',
+    sortOrder: 'desc' as 'asc' | 'desc'
+  });
+  
+  const [payoutFilters, setPayoutFilters] = useState({
+    status: 'all',
+    dateRange: 'all',
+    sortBy: 'date',
+    sortOrder: 'desc' as 'asc' | 'desc'
+  });
+  
+  const [showFilters, setShowFilters] = useState({
+    orders: false,
+    commissions: false,
+    payouts: false
+  });
   
   // Payout related state
   const [bankDetails, setBankDetails] = useState({
@@ -106,7 +139,7 @@ export default function StoreDashboard() {
 
   useEffect(() => {
     filterOrders();
-  }, [orders, searchTerm]);
+  }, [orders, searchTerm, orderFilters]);
 
   const loadStoreInfo = async () => {
     try {
@@ -194,8 +227,9 @@ export default function StoreDashboard() {
   };
 
   const filterOrders = () => {
-    let filtered = orders;
+    let filtered = [...orders];
 
+    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(order =>
         order.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -205,7 +239,159 @@ export default function StoreDashboard() {
       );
     }
 
+    // Apply status filter
+    if (orderFilters.status !== 'all') {
+      filtered = filtered.filter(order => order.orderStatus === orderFilters.status);
+    }
+
+    // Apply date range filter
+    if (orderFilters.dateRange !== 'all') {
+      const now = new Date();
+      const filterDate = new Date();
+      
+      switch (orderFilters.dateRange) {
+        case 'today':
+          filterDate.setHours(0, 0, 0, 0);
+          filtered = filtered.filter(order => {
+            const orderDate = new Date(order._createdDate || '');
+            return orderDate >= filterDate;
+          });
+          break;
+        case 'week':
+          filterDate.setDate(now.getDate() - 7);
+          filtered = filtered.filter(order => {
+            const orderDate = new Date(order._createdDate || '');
+            return orderDate >= filterDate;
+          });
+          break;
+        case 'month':
+          filterDate.setMonth(now.getMonth() - 1);
+          filtered = filtered.filter(order => {
+            const orderDate = new Date(order._createdDate || '');
+            return orderDate >= filterDate;
+          });
+          break;
+      }
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (orderFilters.sortBy) {
+        case 'name':
+          aValue = a.customerName || '';
+          bValue = b.customerName || '';
+          break;
+        case 'status':
+          aValue = a.orderStatus || '';
+          bValue = b.orderStatus || '';
+          break;
+        case 'date':
+        default:
+          aValue = new Date(a._createdDate || '').getTime();
+          bValue = new Date(b._createdDate || '').getTime();
+          break;
+      }
+      
+      if (orderFilters.sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
     setFilteredOrders(filtered);
+  };
+
+  const resetOrderFilters = () => {
+    setOrderFilters({
+      status: 'all',
+      dateRange: 'all',
+      sortBy: 'date',
+      sortOrder: 'desc'
+    });
+    setSearchTerm('');
+  };
+
+  const resetCommissionFilters = () => {
+    setCommissionFilters({
+      status: 'all',
+      period: 'all',
+      sortBy: 'date',
+      sortOrder: 'desc'
+    });
+  };
+
+  const resetPayoutFilters = () => {
+    setPayoutFilters({
+      status: 'all',
+      dateRange: 'all',
+      sortBy: 'date',
+      sortOrder: 'desc'
+    });
+  };
+
+  // Filter and sort payout requests
+  const getFilteredPayoutRequests = () => {
+    let filtered = [...payoutRequests];
+
+    // Apply status filter
+    if (payoutFilters.status !== 'all') {
+      filtered = filtered.filter(request => request.status === payoutFilters.status);
+    }
+
+    // Apply date range filter
+    if (payoutFilters.dateRange !== 'all') {
+      const now = new Date();
+      const filterDate = new Date();
+      
+      switch (payoutFilters.dateRange) {
+        case 'month':
+          filterDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'quarter':
+          filterDate.setMonth(now.getMonth() - 3);
+          break;
+        case 'year':
+          filterDate.setFullYear(now.getFullYear() - 1);
+          break;
+      }
+      
+      filtered = filtered.filter(request => {
+        const requestDate = new Date(request.requestDate);
+        return requestDate >= filterDate;
+      });
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (payoutFilters.sortBy) {
+        case 'amount':
+          aValue = a.amount;
+          bValue = b.amount;
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case 'date':
+        default:
+          aValue = new Date(a.requestDate).getTime();
+          bValue = new Date(b.requestDate).getTime();
+          break;
+      }
+      
+      if (payoutFilters.sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    return filtered;
   };
 
   const markAsDelivered = async (orderId: string) => {
@@ -603,19 +789,156 @@ export default function StoreDashboard() {
             <TabsContent value="deliveries">
               <Card className="bg-white shadow-sm border border-blue-100">
                 <CardHeader className="bg-blue-50 border-b border-blue-100">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <CardTitle className="font-heading text-slate-900">Card Delivery Management</CardTitle>
-                    <div className="flex items-center space-x-2">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <Input
-                          placeholder="Search orders..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10 bg-white w-64"
-                        />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <CardTitle className="font-heading text-slate-900">Card Delivery Management</CardTitle>
+                      <div className="flex items-center space-x-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                          <Input
+                            placeholder="Search orders..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 bg-white w-64"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowFilters(prev => ({ ...prev, orders: !prev.orders }))}
+                          className="flex items-center space-x-2"
+                        >
+                          <Filter className="w-4 h-4" />
+                          <span>Filters</span>
+                          {(orderFilters.status !== 'all' || orderFilters.dateRange !== 'all') && (
+                            <Badge className="bg-blue-500 text-white ml-1">
+                              {[orderFilters.status !== 'all' ? 1 : 0, orderFilters.dateRange !== 'all' ? 1 : 0].reduce((a, b) => a + b)}
+                            </Badge>
+                          )}
+                        </Button>
+                        <Button 
+                          onClick={() => exportCommissionReport('daily')} 
+                          variant="outline" 
+                          size="sm"
+                          disabled={orders.filter(o => o.orderStatus === 'Received').length === 0}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Export Report
+                        </Button>
                       </div>
                     </div>
+
+                    {/* Filter Panel */}
+                    {showFilters.orders && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="bg-white border border-slate-200 rounded-lg p-4"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Status</Label>
+                            <Select 
+                              value={orderFilters.status} 
+                              onValueChange={(value) => setOrderFilters(prev => ({ ...prev, status: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="Delivered">Ready for Pickup</SelectItem>
+                                <SelectItem value="Dispatched">Dispatched</SelectItem>
+                                <SelectItem value="Received">Delivered</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Date Range</Label>
+                            <Select 
+                              value={orderFilters.dateRange} 
+                              onValueChange={(value) => setOrderFilters(prev => ({ ...prev, dateRange: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Time</SelectItem>
+                                <SelectItem value="today">Today</SelectItem>
+                                <SelectItem value="week">Last 7 Days</SelectItem>
+                                <SelectItem value="month">Last 30 Days</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Sort By</Label>
+                            <Select 
+                              value={orderFilters.sortBy} 
+                              onValueChange={(value) => setOrderFilters(prev => ({ ...prev, sortBy: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="date">Date</SelectItem>
+                                <SelectItem value="name">Customer Name</SelectItem>
+                                <SelectItem value="status">Status</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Sort Order</Label>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Button
+                                variant={orderFilters.sortOrder === 'desc' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setOrderFilters(prev => ({ ...prev, sortOrder: 'desc' }))}
+                                className="flex-1"
+                              >
+                                <SortDesc className="w-4 h-4 mr-1" />
+                                Desc
+                              </Button>
+                              <Button
+                                variant={orderFilters.sortOrder === 'asc' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setOrderFilters(prev => ({ ...prev, sortOrder: 'asc' }))}
+                                className="flex-1"
+                              >
+                                <SortAsc className="w-4 h-4 mr-1" />
+                                Asc
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
+                          <div className="text-sm text-slate-600">
+                            Showing {filteredOrders.length} of {orders.length} orders
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={resetOrderFilters}
+                              className="flex items-center space-x-1"
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Reset</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowFilters(prev => ({ ...prev, orders: false }))}
+                            >
+                              Close
+                            </Button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
@@ -734,7 +1057,83 @@ export default function StoreDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="bg-white shadow-sm border border-blue-100">
                   <CardHeader className="bg-blue-50 border-b border-blue-100">
-                    <CardTitle className="font-heading text-slate-900">Commission Summary</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-heading text-slate-900">Commission Summary</CardTitle>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowFilters(prev => ({ ...prev, commissions: !prev.commissions }))}
+                        className="flex items-center space-x-2"
+                      >
+                        <Filter className="w-4 h-4" />
+                        <span>Filters</span>
+                        {(commissionFilters.status !== 'all' || commissionFilters.period !== 'all') && (
+                          <Badge className="bg-blue-500 text-white ml-1">
+                            {[commissionFilters.status !== 'all' ? 1 : 0, commissionFilters.period !== 'all' ? 1 : 0].reduce((a, b) => a + b)}
+                          </Badge>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    {/* Commission Filter Panel */}
+                    {showFilters.commissions && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="bg-white border border-slate-200 rounded-lg p-4 mt-4"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Status</Label>
+                            <Select 
+                              value={commissionFilters.status} 
+                              onValueChange={(value) => setCommissionFilters(prev => ({ ...prev, status: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="Paid">Paid</SelectItem>
+                                <SelectItem value="Pending">Pending</SelectItem>
+                                <SelectItem value="Available">Available</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Period</Label>
+                            <Select 
+                              value={commissionFilters.period} 
+                              onValueChange={(value) => setCommissionFilters(prev => ({ ...prev, period: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Time</SelectItem>
+                                <SelectItem value="current">Current Month</SelectItem>
+                                <SelectItem value="last3">Last 3 Months</SelectItem>
+                                <SelectItem value="last6">Last 6 Months</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex items-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={resetCommissionFilters}
+                              className="flex items-center space-x-1 w-full"
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Reset Filters</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-6">
@@ -1053,7 +1452,100 @@ export default function StoreDashboard() {
                 {/* Payout History */}
                 <Card className="bg-white shadow-sm border border-blue-100">
                   <CardHeader className="bg-blue-50 border-b border-blue-100">
-                    <CardTitle className="font-heading text-slate-900">Payout History</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-heading text-slate-900">Payout History</CardTitle>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowFilters(prev => ({ ...prev, payouts: !prev.payouts }))}
+                        className="flex items-center space-x-2"
+                      >
+                        <Filter className="w-4 h-4" />
+                        <span>Filters</span>
+                        {(payoutFilters.status !== 'all' || payoutFilters.dateRange !== 'all') && (
+                          <Badge className="bg-blue-500 text-white ml-1">
+                            {[payoutFilters.status !== 'all' ? 1 : 0, payoutFilters.dateRange !== 'all' ? 1 : 0].reduce((a, b) => a + b)}
+                          </Badge>
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Payout Filter Panel */}
+                    {showFilters.payouts && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="bg-white border border-slate-200 rounded-lg p-4 mt-4"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Status</Label>
+                            <Select 
+                              value={payoutFilters.status} 
+                              onValueChange={(value) => setPayoutFilters(prev => ({ ...prev, status: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="Approved">Approved</SelectItem>
+                                <SelectItem value="Pending">Pending</SelectItem>
+                                <SelectItem value="Rejected">Rejected</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Date Range</Label>
+                            <Select 
+                              value={payoutFilters.dateRange} 
+                              onValueChange={(value) => setPayoutFilters(prev => ({ ...prev, dateRange: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Time</SelectItem>
+                                <SelectItem value="month">Last Month</SelectItem>
+                                <SelectItem value="quarter">Last Quarter</SelectItem>
+                                <SelectItem value="year">Last Year</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-700">Sort By</Label>
+                            <Select 
+                              value={payoutFilters.sortBy} 
+                              onValueChange={(value) => setPayoutFilters(prev => ({ ...prev, sortBy: value }))}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="date">Request Date</SelectItem>
+                                <SelectItem value="amount">Amount</SelectItem>
+                                <SelectItem value="status">Status</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex items-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={resetPayoutFilters}
+                              className="flex items-center space-x-1 w-full"
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Reset</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="overflow-x-auto">
@@ -1068,8 +1560,8 @@ export default function StoreDashboard() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {payoutRequests.length > 0 ? (
-                            payoutRequests.map((request) => (
+                          {getFilteredPayoutRequests().length > 0 ? (
+                            getFilteredPayoutRequests().map((request) => (
                               <TableRow key={request.id} className="hover:bg-blue-50">
                                 <TableCell className="font-mono">{request.id}</TableCell>
                                 <TableCell className="font-heading text-lg">₹{request.amount}</TableCell>
@@ -1090,8 +1582,18 @@ export default function StoreDashboard() {
                             <TableRow>
                               <TableCell colSpan={5} className="text-center py-8">
                                 <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                                <p className="font-paragraph text-slate-500">No payout requests yet</p>
-                                <p className="font-paragraph text-slate-400 text-sm">Your payout history will appear here</p>
+                                <p className="font-paragraph text-slate-500">
+                                  {payoutRequests.length === 0 
+                                    ? "No payout requests yet" 
+                                    : "No requests match your filters"
+                                  }
+                                </p>
+                                <p className="font-paragraph text-slate-400 text-sm">
+                                  {payoutRequests.length === 0 
+                                    ? "Your payout history will appear here" 
+                                    : "Try adjusting your filter criteria"
+                                  }
+                                </p>
                               </TableCell>
                             </TableRow>
                           )}
