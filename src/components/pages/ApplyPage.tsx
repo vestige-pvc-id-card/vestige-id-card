@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Image } from '@/components/ui/image';
 import { BaseCrudService } from '@/integrations';
 import { IDCardOrders, Stores } from '@/entities';
-import { Upload, CheckCircle, RotateCcw, Edit, User, Phone, MapPin, Building2, Camera, CreditCard, AlertCircle, FileImage } from 'lucide-react';
+import { Upload, CheckCircle, RotateCcw, Edit, User, Phone, MapPin, Building2, Camera, CreditCard, AlertCircle, FileImage, MessageCircle, Truck, Check } from 'lucide-react';
 
 interface FormData {
   customerName: string;
@@ -295,7 +295,8 @@ export default function ApplyPage() {
 
   return (
     <div className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -304,8 +305,72 @@ export default function ApplyPage() {
         >
           <h1 className="text-4xl font-heading text-foreground mb-4">Apply for Vestige PVC ID Card</h1>
           <p className="text-lg font-paragraph text-foreground/80 max-w-2xl mx-auto">
-            Fill out the form below to apply for your official Vestige PVC ID card. All fields are required.
+            Complete your ID card application in 4 simple steps
           </p>
+        </motion.div>
+
+        {/* Process Steps */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="mb-12"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Step 1 */}
+            <div className="relative">
+              <Card className={`p-6 text-center ${!showSummary ? 'border-primary bg-primary/5' : 'border-gray-200'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  !showSummary ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'
+                }`}>
+                  <Edit className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading text-foreground mb-2">Step 1</h3>
+                <p className="text-sm font-paragraph text-foreground/70">Fill Application Form</p>
+              </Card>
+              {/* Connector */}
+              <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-gray-300 transform -translate-y-1/2"></div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="relative">
+              <Card className={`p-6 text-center ${showSummary && !isSubmitting ? 'border-primary bg-primary/5' : 'border-gray-200'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  showSummary && !isSubmitting ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'
+                }`}>
+                  <CreditCard className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading text-foreground mb-2">Step 2</h3>
+                <p className="text-sm font-paragraph text-foreground/70">Secure Payment</p>
+              </Card>
+              {/* Connector */}
+              <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-gray-300 transform -translate-y-1/2"></div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative">
+              <Card className="p-6 text-center border-gray-200">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-gray-100 text-gray-400">
+                  <MessageCircle className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading text-foreground mb-2">Step 3</h3>
+                <p className="text-sm font-paragraph text-foreground/70">WhatsApp Confirmation</p>
+              </Card>
+              {/* Connector */}
+              <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-gray-300 transform -translate-y-1/2"></div>
+            </div>
+
+            {/* Step 4 */}
+            <div>
+              <Card className="p-6 text-center border-gray-200">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-gray-100 text-gray-400">
+                  <Truck className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading text-foreground mb-2">Step 4</h3>
+                <p className="text-sm font-paragraph text-foreground/70">Delivery & Completion</p>
+              </Card>
+            </div>
+          </div>
         </motion.div>
 
         <motion.div
@@ -623,12 +688,28 @@ export default function ApplyPage() {
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <h4 className="font-heading text-foreground mb-2 flex items-center gap-2">
                       <CreditCard className="w-5 h-5 text-blue-600" />
-                      Next Steps
+                      What Happens Next?
                     </h4>
-                    <p className="font-paragraph text-foreground/80 text-sm leading-relaxed">
-                      After confirming your details, you will be redirected to the secure Razorpay payment gateway. 
-                      Your ID card will be processed once payment is confirmed and you'll receive a WhatsApp confirmation.
-                    </p>
+                    <div className="space-y-3 text-sm font-paragraph text-foreground/80">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-xs font-bold text-blue-600">2</span>
+                        </div>
+                        <p><strong>Secure Payment:</strong> You'll be redirected to Razorpay for secure payment processing</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-xs font-bold text-blue-600">3</span>
+                        </div>
+                        <p><strong>WhatsApp Confirmation:</strong> You'll receive an instant confirmation message on WhatsApp</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-xs font-bold text-blue-600">4</span>
+                        </div>
+                        <p><strong>Processing & Delivery:</strong> Your ID card will be processed and delivered to your selected store</p>
+                      </div>
+                    </div>
                   </div>
                   
                   {/* Error Display */}

@@ -16,7 +16,10 @@ import {
   Phone, 
   Building2,
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  MessageCircle,
+  Truck,
+  Edit
 } from 'lucide-react';
 
 interface PaymentPageProps {
@@ -373,32 +376,136 @@ Thank you for choosing Vestige!`;
 
   if (paymentStatus === 'success') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-8">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full text-center"
-        >
-          <Card className="p-8">
-            <CardContent className="p-0">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-10 h-10 text-green-600" />
+      <div className="min-h-screen bg-background py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-12"
+          >
+            <h1 className="text-4xl font-heading text-foreground mb-4">Payment Successful!</h1>
+            <p className="text-lg font-paragraph text-foreground/80 max-w-2xl mx-auto">
+              Your order has been confirmed and is being processed
+            </p>
+          </motion.div>
+
+          {/* Process Steps - All Completed */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+            className="mb-12"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {/* Step 1 - Completed */}
+              <div className="relative">
+                <Card className="p-6 text-center border-green-200 bg-green-50">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500 text-white">
+                    <CheckCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-heading text-foreground mb-2">Step 1</h3>
+                  <p className="text-sm font-paragraph text-foreground/70">Application Completed</p>
+                </Card>
+                {/* Connector */}
+                <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-green-300 transform -translate-y-1/2"></div>
               </div>
-              <h2 className="text-2xl font-heading text-foreground mb-4">Payment Successful!</h2>
-              <p className="font-paragraph text-foreground/70 mb-6">
-                Your payment has been processed successfully. A confirmation message has been sent to your WhatsApp.
-              </p>
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => navigate('/')}
-                  className="w-full bg-brand-green text-white hover:bg-brand-green/90"
-                >
-                  Return to Home
-                </Button>
+
+              {/* Step 2 - Completed */}
+              <div className="relative">
+                <Card className="p-6 text-center border-green-200 bg-green-50">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500 text-white">
+                    <CheckCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-heading text-foreground mb-2">Step 2</h3>
+                  <p className="text-sm font-paragraph text-foreground/70">Payment Completed</p>
+                </Card>
+                {/* Connector */}
+                <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-green-300 transform -translate-y-1/2"></div>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+
+              {/* Step 3 - Current */}
+              <div className="relative">
+                <Card className="p-6 text-center border-blue-200 bg-blue-50">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-blue-500 text-white">
+                    <MessageCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-heading text-foreground mb-2">Step 3</h3>
+                  <p className="text-sm font-paragraph text-foreground/70">WhatsApp Confirmation Sent</p>
+                </Card>
+                {/* Connector */}
+                <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-blue-300 transform -translate-y-1/2"></div>
+              </div>
+
+              {/* Step 4 */}
+              <div>
+                <Card className="p-6 text-center border-orange-200 bg-orange-50">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-orange-500 text-white">
+                    <Truck className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-heading text-foreground mb-2">Step 4</h3>
+                  <p className="text-sm font-paragraph text-foreground/70">Processing & Delivery</p>
+                </Card>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Success Content */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="max-w-2xl mx-auto"
+          >
+            <Card className="p-8 text-center">
+              <CardContent className="p-0">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle className="w-10 h-10 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-heading text-foreground mb-4">Order Confirmed!</h2>
+                
+                <div className="space-y-4 mb-8">
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-left">
+                    <h4 className="font-heading text-foreground mb-3 flex items-center gap-2">
+                      <MessageCircle className="w-5 h-5 text-blue-600" />
+                      What's Next?
+                    </h4>
+                    <div className="space-y-3 text-sm font-paragraph text-foreground/80">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <CheckCircle className="w-3 h-3 text-blue-600" />
+                        </div>
+                        <p><strong>WhatsApp Confirmation:</strong> You've received a confirmation message with your order details</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Clock className="w-3 h-3 text-orange-600" />
+                        </div>
+                        <p><strong>Processing:</strong> Your ID card is now being processed and will be ready within 7-10 business days</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Truck className="w-3 h-3 text-green-600" />
+                        </div>
+                        <p><strong>Delivery:</strong> Your ID card will be delivered to your selected store for pickup</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Button 
+                    onClick={() => navigate('/')}
+                    className="w-full bg-brand-green text-white hover:bg-brand-green/90"
+                  >
+                    Return to Home
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -436,17 +543,78 @@ Thank you for choosing Vestige!`;
 
   return (
     <div className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-8"
+          className="text-center mb-12"
         >
           <h1 className="text-4xl font-heading text-foreground mb-4">Complete Your Payment</h1>
           <p className="text-lg font-paragraph text-foreground/80 max-w-2xl mx-auto">
-            Review your order details and proceed with secure payment
+            Step 2 of 4: Secure payment processing
           </p>
+        </motion.div>
+
+        {/* Process Steps */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="mb-12"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Step 1 - Completed */}
+            <div className="relative">
+              <Card className="p-6 text-center border-green-200 bg-green-50">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500 text-white">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading text-foreground mb-2">Step 1</h3>
+                <p className="text-sm font-paragraph text-foreground/70">Application Completed</p>
+              </Card>
+              {/* Connector */}
+              <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-green-300 transform -translate-y-1/2"></div>
+            </div>
+
+            {/* Step 2 - Current */}
+            <div className="relative">
+              <Card className="p-6 text-center border-primary bg-primary/5">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-primary text-white">
+                  <CreditCard className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading text-foreground mb-2">Step 2</h3>
+                <p className="text-sm font-paragraph text-foreground/70">Secure Payment</p>
+              </Card>
+              {/* Connector */}
+              <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-gray-300 transform -translate-y-1/2"></div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative">
+              <Card className="p-6 text-center border-gray-200">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-gray-100 text-gray-400">
+                  <MessageCircle className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading text-foreground mb-2">Step 3</h3>
+                <p className="text-sm font-paragraph text-foreground/70">WhatsApp Confirmation</p>
+              </Card>
+              {/* Connector */}
+              <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-gray-300 transform -translate-y-1/2"></div>
+            </div>
+
+            {/* Step 4 */}
+            <div>
+              <Card className="p-6 text-center border-gray-200">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-gray-100 text-gray-400">
+                  <Truck className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading text-foreground mb-2">Step 4</h3>
+                <p className="text-sm font-paragraph text-foreground/70">Delivery & Completion</p>
+              </Card>
+            </div>
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -573,6 +741,30 @@ Thank you for choosing Vestige!`;
                     <div>
                       <p className="font-paragraph text-foreground text-sm">Instant Confirmation</p>
                       <p className="text-xs font-paragraph text-foreground/70">WhatsApp notification on payment success</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Next Steps Info */}
+                <div className="space-y-4">
+                  <h4 className="font-heading text-foreground flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5 text-blue-600" />
+                    What Happens After Payment?
+                  </h4>
+                  <div className="space-y-3 text-sm font-paragraph text-foreground/80">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-600">3</span>
+                      </div>
+                      <p><strong>Instant WhatsApp Confirmation:</strong> You'll receive a confirmation message with your order details</p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-600">4</span>
+                      </div>
+                      <p><strong>Processing & Delivery:</strong> Your ID card will be processed and delivered to your selected store within 7-10 business days</p>
                     </div>
                   </div>
                 </div>
