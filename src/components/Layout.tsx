@@ -119,12 +119,10 @@ export default function Layout() {
           )}
         </AnimatePresence>
       </header>
-
       {/* Main Content */}
       <main>
         <Outlet />
       </main>
-
       {/* Footer */}
       <footer className="bg-foreground text-white py-16">
         <div className="max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8">
@@ -198,9 +196,7 @@ export default function Layout() {
           </div>
 
           <div className="border-t border-white/20 mt-12 pt-8 text-center">
-            <p className="font-paragraph text-white/60">
-              © 2024 Vestige PVC ID Card Service. All rights reserved.
-            </p>
+            <p className="font-paragraph text-white/60">{"© 202Vestige PVC ID Card Service. All rights reserved."}</p>
           </div>
         </div>
       </footer>
