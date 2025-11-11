@@ -87,7 +87,7 @@ export default function AdminDashboard() {
   const [clearType, setClearType] = useState<'orders' | 'all'>('orders');
 
   // Store credentials management state
-  const [storeCredentials, setStoreCredentials] = useState<any[]>([]);
+  const [storeCredentials, setStoreCredentials] = useState<StoreCredentials[]>([]);
   const [isCredentialsDialogOpen, setIsCredentialsDialogOpen] = useState(false);
   const [selectedStoreForCredentials, setSelectedStoreForCredentials] = useState<Stores | null>(null);
   const [credentialsForm, setCredentialsForm] = useState({
@@ -149,10 +149,13 @@ export default function AdminDashboard() {
         BaseCrudService.getAll<IDCardOrders>('idcardorders'),
         BaseCrudService.getAll<Stores>('stores')
       ]);
-      setOrders(ordersResult.items);
-      setStores(storesResult.items);
+      setOrders(ordersResult.items || []);
+      setStores(storesResult.items || []);
     } catch (error) {
       console.error('Error loading data:', error);
+      // Initialize with empty arrays if loading fails
+      setOrders([]);
+      setStores([]);
     }
   };
 
@@ -165,7 +168,7 @@ export default function AdminDashboard() {
   const loadStoreCredentials = async () => {
     try {
       const { items } = await BaseCrudService.getAll<StoreCredentials>('storecredentials');
-      setStoreCredentials(items);
+      setStoreCredentials(items || []);
     } catch (error) {
       console.error('Error loading store credentials:', error);
       // Initialize with empty array if loading fails
@@ -174,6 +177,11 @@ export default function AdminDashboard() {
   };
 
   const filterOrders = () => {
+    if (!orders || !Array.isArray(orders)) {
+      setFilteredOrders([]);
+      return;
+    }
+
     let filtered = [...orders];
 
     // Apply search filter
@@ -275,6 +283,11 @@ export default function AdminDashboard() {
   };
 
   const filterStores = () => {
+    if (!stores || !Array.isArray(stores)) {
+      setFilteredStores([]);
+      return;
+    }
+
     let filtered = [...stores];
 
     // Apply search filter
@@ -396,12 +409,14 @@ export default function AdminDashboard() {
 
   // Get unique cities for filter dropdown
   const getUniqueCities = () => {
+    if (!stores || !Array.isArray(stores)) return [];
     const cities = stores.map(store => store.storeCity).filter(Boolean);
     return [...new Set(cities)].sort();
   };
 
   // Filter payout requests
   const getFilteredPayoutRequests = () => {
+    if (!payoutRequests || !Array.isArray(payoutRequests)) return [];
     let filtered = [...payoutRequests];
 
     // Apply status filter
@@ -485,6 +500,11 @@ export default function AdminDashboard() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
+      if (!orders || !Array.isArray(orders)) {
+        alert('No orders data available');
+        return;
+      }
+
       const order = orders.find(o => o._id === orderId);
       if (order) {
         const updatedOrder = { ...order, orderStatus: newStatus };
@@ -531,7 +551,7 @@ export default function AdminDashboard() {
       };
       
       await BaseCrudService.create('stores', storeData);
-      setStores([...stores, storeData]);
+      setStores(prevStores => [...(prevStores || []), storeData]);
       setNewStore({
         storeName: '',
         storeAddress: '',
@@ -553,10 +573,10 @@ export default function AdminDashboard() {
     
     try {
       await BaseCrudService.delete('stores', storeToDelete._id);
-      setStores(stores.filter(store => store._id !== storeToDelete._id));
+      setStores(prevStores => (prevStores || []).filter(store => store._id !== storeToDelete._id));
       
       // Also remove associated credentials
-      const associatedCredentials = storeCredentials.filter(cred => cred.storeId === storeToDelete._id);
+      const associatedCredentials = (storeCredentials || []).filter(cred => cred.storeId === storeToDelete._id);
       for (const credential of associatedCredentials) {
         try {
           await BaseCrudService.delete('storecredentials', credential._id);
@@ -564,7 +584,7 @@ export default function AdminDashboard() {
           console.error('Error deleting store credentials:', error);
         }
       }
-      setStoreCredentials(storeCredentials.filter(cred => cred.storeId !== storeToDelete._id));
+      setStoreCredentials(prevCreds => (prevCreds || []).filter(cred => cred.storeId !== storeToDelete._id));
       
       setStoreToDelete(null);
       setIsDeleteDialogOpen(false);
@@ -957,15 +977,15 @@ export default function AdminDashboard() {
   };
 
   const stats = {
-    totalOrders: orders.length,
-    pendingOrders: orders.filter(o => o.orderStatus === 'Pending').length,
-    printedCards: orders.filter(o => o.orderStatus === 'Printed').length,
-    dispatchedCards: orders.filter(o => o.orderStatus === 'Dispatched').length,
-    deliveredOrders: orders.filter(o => o.orderStatus === 'Delivered').length,
-    receivedOrders: orders.filter(o => o.orderStatus === 'Received').length,
-    totalStores: stores.filter(s => s.isActive).length,
-    totalRevenue: orders.length * 10, // Assuming ₹10 per card
-    todayOrders: orders.filter(o => {
+    totalOrders: (orders || []).length,
+    pendingOrders: (orders || []).filter(o => o.orderStatus === 'Pending').length,
+    printedCards: (orders || []).filter(o => o.orderStatus === 'Printed').length,
+    dispatchedCards: (orders || []).filter(o => o.orderStatus === 'Dispatched').length,
+    deliveredOrders: (orders || []).filter(o => o.orderStatus === 'Delivered').length,
+    receivedOrders: (orders || []).filter(o => o.orderStatus === 'Received').length,
+    totalStores: (stores || []).filter(s => s.isActive).length,
+    totalRevenue: (orders || []).length * 10, // Assuming ₹10 per card
+    todayOrders: (orders || []).filter(o => {
       const orderDate = new Date(o._createdDate || '');
       const today = new Date();
       return orderDate.toDateString() === today.toDateString();
@@ -1203,7 +1223,7 @@ export default function AdminDashboard() {
                           <MessageSquare className="w-4 h-4 mr-2" />
                           Bulk WhatsApp
                         </Button>
-                        {orders.length > 0 && (
+                        {orders && orders.length > 0 && (
                           <Button 
                             onClick={clearAllOrdersHandler}
                             variant="outline" 
@@ -1330,7 +1350,7 @@ export default function AdminDashboard() {
 
                         <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                           <div className="text-sm text-slate-600">
-                            Showing {filteredOrders.length} of {orders.length} orders
+                            Showing {filteredOrders ? filteredOrders.length : 0} of {orders ? orders.length : 0} orders
                           </div>
                           <div className="flex items-center space-x-2">
                             <Button
@@ -1519,7 +1539,7 @@ export default function AdminDashboard() {
                           <EyeOff className="w-4 h-4" />
                           <span>{showPassword ? 'Hide' : 'Show'} Passwords</span>
                         </Button>
-                        {stores.length > 0 && (
+                        {stores && stores.length > 0 && (
                           <AlertDialog open={isClearAllDialogOpen} onOpenChange={setIsClearAllDialogOpen}>
                             <AlertDialogTrigger asChild>
                               <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
@@ -1712,7 +1732,7 @@ export default function AdminDashboard() {
 
                       <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                         <div className="text-sm text-slate-600">
-                          Showing {filteredStores.length} of {stores.length} stores
+                          Showing {filteredStores ? filteredStores.length : 0} of {stores ? stores.length : 0} stores
                         </div>
                         <div className="flex items-center space-x-2">
                           <Button
@@ -1754,8 +1774,8 @@ export default function AdminDashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredStores.map((store) => {
-                          const storeOrders = orders.filter(o => o.vestigeId?.includes(store._id.slice(-4)));
+                        {filteredStores && filteredStores.length > 0 ? filteredStores.map((store) => {
+                          const storeOrders = (orders || []).filter(o => o.vestigeId?.includes(store._id.slice(-4)));
                           const deliveredOrders = storeOrders.filter(o => o.orderStatus === 'Delivered' || o.orderStatus === 'Received');
                           const performance = storeOrders.length > 0 ? Math.round((deliveredOrders.length / storeOrders.length) * 100) : 0;
                           
@@ -1876,7 +1896,16 @@ export default function AdminDashboard() {
                               </TableCell>
                             </TableRow>
                           );
-                        })}
+                        }) : (
+                          <TableRow>
+                            <TableCell colSpan={9} className="text-center py-8">
+                              <div className="flex flex-col items-center">
+                                <Users className="w-12 h-12 text-gray-300 mb-4" />
+                                <p className="font-paragraph text-slate-500">No stores found matching your criteria.</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </TableBody>
                     </Table>
                   </div>
