@@ -74,6 +74,15 @@ export default function AdminDashboard() {
     autoClearOrders();
   }, [navigate]);
 
+  // Load data after auto-clear is complete
+  useEffect(() => {
+    if (autoClearComplete) {
+      loadData();
+      loadPayoutData();
+      loadStoreCredentials();
+    }
+  }, [autoClearComplete]);
+
   const autoClearOrders = async () => {
     setIsAutoClearing(true);
     setClearType('orders');
@@ -81,12 +90,10 @@ export default function AdminDashboard() {
       const result = await clearAllOrders();
       console.log('🔄 Auto-clear orders result:', result.message);
       setAutoClearComplete(true);
-      // Load fresh data after clearing
-      loadData();
-      loadPayoutData();
-      loadStoreCredentials();
     } catch (error) {
       console.error('❌ Auto-clear orders failed:', error);
+      // Still load data even if clear fails
+      setAutoClearComplete(true);
     } finally {
       setIsAutoClearing(false);
     }
@@ -148,18 +155,43 @@ export default function AdminDashboard() {
     try {
       const order = orders.find(o => o._id === orderId);
       if (order) {
-        await BaseCrudService.update('idcardorders', { ...order, orderStatus: newStatus });
-        setOrders(orders.map(o => o._id === orderId ? { ...o, orderStatus: newStatus } : o));
+        const updatedOrder = { ...order, orderStatus: newStatus };
+        await BaseCrudService.update('idcardorders', updatedOrder);
+        setOrders(orders.map(o => o._id === orderId ? updatedOrder : o));
         
         // Simulate WhatsApp notification
         console.log(`WhatsApp notification sent: Order ${orderId} status updated to ${newStatus}`);
+        alert(`Order status updated to ${newStatus} successfully!`);
       }
     } catch (error) {
       console.error('Error updating order status:', error);
+      alert('Failed to update order status. Please try again.');
     }
   };
 
   const addStore = async () => {
+    // Validation
+    if (!newStore.storeName.trim()) {
+      alert('Store name is required');
+      return;
+    }
+    if (!newStore.storeCity.trim()) {
+      alert('City is required');
+      return;
+    }
+    if (!newStore.contactPerson.trim()) {
+      alert('Contact person is required');
+      return;
+    }
+    if (!newStore.contactNumber.trim()) {
+      alert('Contact number is required');
+      return;
+    }
+    if (!newStore.storeAddress.trim()) {
+      alert('Store address is required');
+      return;
+    }
+
     try {
       const storeData: Stores = {
         _id: crypto.randomUUID(),
@@ -177,8 +209,10 @@ export default function AdminDashboard() {
         isActive: true
       });
       setIsAddStoreOpen(false);
+      alert('Store added successfully!');
     } catch (error) {
       console.error('Error adding store:', error);
+      alert('Failed to add store. Please try again.');
     }
   };
 
@@ -188,10 +222,24 @@ export default function AdminDashboard() {
     try {
       await BaseCrudService.delete('stores', storeToDelete._id);
       setStores(stores.filter(store => store._id !== storeToDelete._id));
+      
+      // Also remove associated credentials
+      const associatedCredentials = storeCredentials.filter(cred => cred.storeId === storeToDelete._id);
+      for (const credential of associatedCredentials) {
+        try {
+          await BaseCrudService.delete('storecredentials', credential._id);
+        } catch (error) {
+          console.error('Error deleting store credentials:', error);
+        }
+      }
+      setStoreCredentials(storeCredentials.filter(cred => cred.storeId !== storeToDelete._id));
+      
       setStoreToDelete(null);
       setIsDeleteDialogOpen(false);
+      alert('Store deleted successfully!');
     } catch (error) {
       console.error('Error deleting store:', error);
+      alert('Failed to delete store. Please try again.');
     }
   };
 
@@ -205,14 +253,16 @@ export default function AdminDashboard() {
       const result = await clearAllOrders();
       if (result.success) {
         setOrders([]);
-        console.log(result.message);
+        alert('All orders cleared successfully!');
         // Reload data to ensure UI is in sync
         loadData();
       } else {
         console.error('Failed to clear orders:', result.message);
+        alert('Failed to clear orders. Please try again.');
       }
     } catch (error) {
       console.error('Error clearing all orders:', error);
+      alert('Error clearing orders. Please try again.');
     }
   };
 
@@ -223,14 +273,17 @@ export default function AdminDashboard() {
         setStores([]);
         setStoreCredentials([]);
         setIsClearAllDialogOpen(false);
-        console.log(result.message);
+        alert('All stores and data cleared successfully!');
         // Reload data to ensure UI is in sync
         loadData();
+        loadStoreCredentials();
       } else {
         console.error('Failed to clear stores:', result.message);
+        alert('Failed to clear stores. Please try again.');
       }
     } catch (error) {
       console.error('Error clearing all stores:', error);
+      alert('Error clearing stores. Please try again.');
     }
   };
 
@@ -280,6 +333,17 @@ export default function AdminDashboard() {
   const saveStoreCredentials = async () => {
     if (!selectedStoreForCredentials) return;
     
+    // Validation
+    if (!credentialsForm.loginId.trim()) {
+      alert('Login ID is required!');
+      return;
+    }
+    
+    if (!credentialsForm.password.trim()) {
+      alert('Password is required!');
+      return;
+    }
+    
     if (credentialsForm.password !== credentialsForm.confirmPassword) {
       alert('Passwords do not match!');
       return;
@@ -291,15 +355,6 @@ export default function AdminDashboard() {
     }
 
     try {
-      const credentialData: StoreCredentials = {
-        _id: crypto.randomUUID(),
-        storeId: selectedStoreForCredentials._id,
-        username: credentialsForm.loginId,
-        password: credentialsForm.password,
-        lastLoginDate: undefined,
-        isActive: true
-      };
-
       if (isEditingCredentials) {
         // Find existing credential and update it
         const existingCredential = storeCredentials.find(c => c.storeId === selectedStoreForCredentials._id);
@@ -315,9 +370,25 @@ export default function AdminDashboard() {
           ));
         }
       } else {
+        // Check if credentials already exist for this store
+        const existingCredential = storeCredentials.find(c => c.storeId === selectedStoreForCredentials._id);
+        if (existingCredential) {
+          alert('Credentials already exist for this store. Use edit option to update.');
+          return;
+        }
+
         // Create new credential
+        const credentialData: StoreCredentials = {
+          _id: crypto.randomUUID(),
+          storeId: selectedStoreForCredentials._id,
+          username: credentialsForm.loginId,
+          password: credentialsForm.password,
+          lastLoginDate: undefined,
+          isActive: true
+        };
+        
         await BaseCrudService.create('storecredentials', credentialData);
-        setStoreCredentials([...storeCredentials.filter(c => c.storeId !== selectedStoreForCredentials._id), credentialData]);
+        setStoreCredentials([...storeCredentials, credentialData]);
       }
 
       setIsCredentialsDialogOpen(false);
@@ -349,6 +420,8 @@ export default function AdminDashboard() {
         ));
         
         alert(`Password reset successfully! New password: ${newPassword}`);
+      } else {
+        alert('No credentials found for this store. Please create credentials first.');
       }
     } catch (error) {
       console.error('Error resetting password:', error);
@@ -356,9 +429,25 @@ export default function AdminDashboard() {
     }
   };
 
-  const copyToClipboard = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
-    alert(`${type} copied to clipboard!`);
+  const copyToClipboard = async (text: string, type: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert(`${type} copied to clipboard!`);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert(`${type} copied to clipboard!`);
+      } catch (fallbackError) {
+        alert('Failed to copy to clipboard. Please copy manually.');
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   const getStoreCredentials = (storeId: string) => {
@@ -424,64 +513,17 @@ export default function AdminDashboard() {
   };
 
   const exportPayoutReport = (period: 'monthly' | 'quarterly') => {
-    const csvContent = [
-      ['Store Name', 'Request ID', 'Amount', 'Request Date', 'Status', 'Paid Date', 'Payment Mode'].join(','),
-      ...payoutRequests.map(request => [
-        request.storeName,
-        request.id,
-        `₹${request.amount}`,
-        request.requestDate,
-        request.status,
-        request.paidDate || '-',
-        request.bankDetails.preferredMode
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payout-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const exportData = (format: 'csv' | 'excel' | 'pdf', period: 'daily' | 'weekly' | 'monthly') => {
-    const now = new Date();
-    let filteredData = filteredOrders;
-    
-    // Filter by period
-    if (period === 'daily') {
-      filteredData = filteredOrders.filter(order => {
-        const orderDate = new Date(order._createdDate || '');
-        return orderDate.toDateString() === now.toDateString();
-      });
-    } else if (period === 'weekly') {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filteredData = filteredOrders.filter(order => {
-        const orderDate = new Date(order._createdDate || '');
-        return orderDate >= weekAgo;
-      });
-    } else if (period === 'monthly') {
-      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      filteredData = filteredOrders.filter(order => {
-        const orderDate = new Date(order._createdDate || '');
-        return orderDate >= monthAgo;
-      });
-    }
-
-    if (format === 'csv' || format === 'excel') {
+    try {
       const csvContent = [
-        ['Order ID', 'Customer Name', 'Vestige ID', 'Mobile', 'Address', 'Status', 'Created Date', 'Payment Status'].join(','),
-        ...filteredData.map(order => [
-          order._id,
-          order.customerName || '',
-          order.vestigeId || '',
-          order.mobileNumber || '',
-          order.customerAddress || '',
-          order.orderStatus || '',
-          order._createdDate ? new Date(order._createdDate).toLocaleDateString() : '',
-          'Paid' // Assuming all orders are paid
+        ['Store Name', 'Request ID', 'Amount', 'Request Date', 'Status', 'Paid Date', 'Payment Mode'].join(','),
+        ...payoutRequests.map(request => [
+          request.storeName,
+          request.id,
+          `₹${request.amount}`,
+          request.requestDate,
+          request.status,
+          request.paidDate || '-',
+          request.bankDetails?.preferredMode || 'N/A'
         ].join(','))
       ].join('\n');
 
@@ -489,13 +531,74 @@ export default function AdminDashboard() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `vestige-orders-${period}-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      a.download = `payout-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
-    } else if (format === 'pdf') {
-      // Simulate PDF generation
-      console.log(`Generating PDF report for ${period} period with ${filteredData.length} orders`);
-      alert(`PDF report for ${period} period would be generated with ${filteredData.length} orders`);
+      
+      alert(`${period} payout report exported successfully!`);
+    } catch (error) {
+      console.error('Error exporting payout report:', error);
+      alert('Failed to export payout report. Please try again.');
+    }
+  };
+
+  const exportData = (format: 'csv' | 'excel' | 'pdf', period: 'daily' | 'weekly' | 'monthly') => {
+    try {
+      const now = new Date();
+      let filteredData = filteredOrders;
+      
+      // Filter by period
+      if (period === 'daily') {
+        filteredData = filteredOrders.filter(order => {
+          const orderDate = new Date(order._createdDate || '');
+          return orderDate.toDateString() === now.toDateString();
+        });
+      } else if (period === 'weekly') {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        filteredData = filteredOrders.filter(order => {
+          const orderDate = new Date(order._createdDate || '');
+          return orderDate >= weekAgo;
+        });
+      } else if (period === 'monthly') {
+        const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        filteredData = filteredOrders.filter(order => {
+          const orderDate = new Date(order._createdDate || '');
+          return orderDate >= monthAgo;
+        });
+      }
+
+      if (format === 'csv' || format === 'excel') {
+        const csvContent = [
+          ['Order ID', 'Customer Name', 'Vestige ID', 'Mobile', 'Address', 'Status', 'Created Date', 'Payment Status'].join(','),
+          ...filteredData.map(order => [
+            order._id,
+            order.customerName || '',
+            order.vestigeId || '',
+            order.mobileNumber || '',
+            (order.customerAddress || '').replace(/,/g, ';'), // Replace commas to avoid CSV issues
+            order.orderStatus || '',
+            order._createdDate ? new Date(order._createdDate).toLocaleDateString() : '',
+            'Paid' // Assuming all orders are paid
+          ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `vestige-orders-${period}-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        alert(`${format.toUpperCase()} report exported successfully with ${filteredData.length} orders!`);
+      } else if (format === 'pdf') {
+        // Simulate PDF generation
+        console.log(`Generating PDF report for ${period} period with ${filteredData.length} orders`);
+        alert(`PDF report for ${period} period would be generated with ${filteredData.length} orders`);
+      }
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      alert('Failed to export data. Please try again.');
     }
   };
 
