@@ -131,10 +131,10 @@ export default function Layout() {
             <div className="md:col-span-2">
               <Image
                 src="https://static.wixstatic.com/media/1878e6_6e99d90c8bf84c5091a40b577c790e5c~mv2.png"
-                alt="Vestige Logo"
                 width={150}
-                className="mb-4 brightness-0 invert"
-              />
+                className="mb-4 brightness-0 invert opacity-[1]"
+                originWidth={256}
+                originHeight={256} />
               <p className="font-paragraph text-white/80 mb-4 max-w-md">
                 Professional PVC ID card services with secure processing and nationwide delivery through our authorized store network.
               </p>

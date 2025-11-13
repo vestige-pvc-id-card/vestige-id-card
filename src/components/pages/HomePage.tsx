@@ -58,7 +58,6 @@ export default function HomePage() {
           </motion.div>
         </motion.div>
       </section>
-
       {/* Features Section */}
       <section className="py-24 px-8">
         <div className="max-w-[100rem] mx-auto">
@@ -113,7 +112,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* Process Section */}
       <section className="py-24 px-8 bg-light-blue/30">
         <div className="max-w-[100rem] mx-auto">
@@ -160,7 +158,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       {/* CTA Section */}
       <section className="py-24 px-8">
         <div className="max-w-4xl mx-auto text-center">
