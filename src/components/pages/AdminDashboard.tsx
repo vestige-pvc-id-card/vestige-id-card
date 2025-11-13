@@ -1060,11 +1060,19 @@ export default function AdminDashboard() {
           className="mb-8"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-heading text-slate-900 mb-2">Admin Dashboard</h1>
-              <p className="font-paragraph text-slate-600">
-                Manage Vestige PVC ID card orders, stores, and analytics
-              </p>
+            <div className="flex items-center space-x-4">
+              <Image
+                src="https://static.wixstatic.com/media/1878e6_8599554ce510497391660ead71601ec3~mv2.png"
+                alt="Vestige Logo"
+                width={120}
+                className="h-12 w-auto"
+              />
+              <div>
+                <h1 className="text-3xl font-heading text-slate-900 mb-2">Admin Dashboard</h1>
+                <p className="font-paragraph text-slate-600">
+                  Manage Vestige PVC ID card orders, stores, and analytics
+                </p>
+              </div>
             </div>
             <div className="flex items-center space-x-2 mt-4 sm:mt-0">
               <Button variant="outline" size="sm">
