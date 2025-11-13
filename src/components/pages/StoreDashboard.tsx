@@ -49,6 +49,10 @@ export default function StoreDashboard() {
   const [selectedOrder, setSelectedOrder] = useState<IDCardOrders | null>(null);
   const [otpInput, setOtpInput] = useState('');
   const [isOtpDialogOpen, setIsOtpDialogOpen] = useState(false);
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [otpSendTime, setOtpSendTime] = useState<Date | null>(null);
+  const [resendTimer, setResendTimer] = useState(0);
   const [supportMessage, setSupportMessage] = useState('');
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
   
@@ -140,6 +144,59 @@ export default function StoreDashboard() {
   useEffect(() => {
     filterOrders();
   }, [orders, searchTerm, orderFilters]);
+
+  // OTP Management Functions
+  const generateOtp = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  const sendOtpToCustomer = async (order: IDCardOrders) => {
+    try {
+      const otp = generateOtp();
+      setGeneratedOtp(otp);
+      setIsOtpSent(true);
+      setOtpSendTime(new Date());
+      setResendTimer(30); // 30 seconds cooldown
+      
+      // Start countdown timer
+      const timer = setInterval(() => {
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Simulate SMS/WhatsApp API call
+      console.log(`📱 Sending OTP ${otp} to ${order.mobileNumber} for customer ${order.customerName}`);
+      
+      // In production, integrate with SMS/WhatsApp API
+      // await smsService.sendOtp(order.mobileNumber, otp);
+      
+      alert(`OTP ${otp} sent to customer's mobile number ${order.mobileNumber}`);
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      alert('Failed to send OTP. Please try again.');
+    }
+  };
+
+  const resendOtp = async (order: IDCardOrders) => {
+    if (resendTimer > 0) {
+      alert(`Please wait ${resendTimer} seconds before resending OTP`);
+      return;
+    }
+    await sendOtpToCustomer(order);
+  };
+
+  const resetOtpState = () => {
+    setOtpInput('');
+    setGeneratedOtp('');
+    setIsOtpSent(false);
+    setOtpSendTime(null);
+    setResendTimer(0);
+  };
 
   const loadStoreInfo = async () => {
     try {
@@ -401,6 +458,12 @@ export default function StoreDashboard() {
       return;
     }
 
+    // Validate OTP against generated OTP
+    if (otpInput !== generatedOtp) {
+      alert('Invalid OTP. Please check the OTP sent to customer and try again.');
+      return;
+    }
+
     try {
       const order = orders.find(o => o._id === orderId);
       if (!order) {
@@ -417,7 +480,7 @@ export default function StoreDashboard() {
       
       // Reset form and close dialog
       setIsOtpDialogOpen(false);
-      setOtpInput('');
+      resetOtpState();
       setSelectedOrder(null);
       
       alert('Order marked as delivered successfully!');
@@ -982,20 +1045,29 @@ export default function StoreDashboard() {
                             </TableCell>
                             <TableCell>
                               {order.orderStatus === 'Delivered' ? (
-                                <Dialog open={isOtpDialogOpen && selectedOrder?._id === order._id} onOpenChange={setIsOtpDialogOpen}>
+                                <Dialog open={isOtpDialogOpen && selectedOrder?._id === order._id} onOpenChange={(open) => {
+                                  setIsOtpDialogOpen(open);
+                                  if (!open) {
+                                    resetOtpState();
+                                    setSelectedOrder(null);
+                                  }
+                                }}>
                                   <DialogTrigger asChild>
                                     <Button 
                                       size="lg" 
                                       className="bg-green-500 hover:bg-green-600 text-white"
-                                      onClick={() => setSelectedOrder(order)}
+                                      onClick={() => {
+                                        setSelectedOrder(order);
+                                        resetOtpState();
+                                      }}
                                     >
                                       <CheckCircle className="w-4 h-4 mr-2" />
                                       Mark as Delivered
                                     </Button>
                                   </DialogTrigger>
-                                  <DialogContent>
+                                  <DialogContent className="sm:max-w-md">
                                     <DialogHeader>
-                                      <DialogTitle>Verify Customer OTP</DialogTitle>
+                                      <DialogTitle>Verify Customer Identity</DialogTitle>
                                     </DialogHeader>
                                     <div className="space-y-4">
                                       <div className="bg-blue-50 p-4 rounded-lg">
@@ -1003,24 +1075,96 @@ export default function StoreDashboard() {
                                         <p className="text-sm text-slate-600">Vestige ID: {order.vestigeId}</p>
                                         <p className="text-sm text-slate-600">Mobile: {order.mobileNumber}</p>
                                       </div>
-                                      <div>
-                                        <Label htmlFor="otp">Enter 6-digit OTP from customer</Label>
-                                        <Input
-                                          id="otp"
-                                          value={otpInput}
-                                          onChange={(e) => setOtpInput(e.target.value)}
-                                          placeholder="000000"
-                                          maxLength={6}
-                                          className="text-center text-2xl font-mono tracking-widest"
-                                        />
-                                      </div>
-                                      <Button 
-                                        onClick={() => markAsDelivered(order._id)} 
-                                        className="w-full bg-green-500 hover:bg-green-600"
-                                        disabled={otpInput.length !== 6}
-                                      >
-                                        Confirm Delivery
-                                      </Button>
+                                      
+                                      {!isOtpSent ? (
+                                        <div className="text-center space-y-4">
+                                          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                            <div className="flex items-start space-x-3">
+                                              <Phone className="w-5 h-5 text-yellow-600 mt-0.5" />
+                                              <div>
+                                                <p className="text-sm font-medium text-yellow-800">Security Verification Required</p>
+                                                <p className="text-xs text-yellow-700 mt-1">
+                                                  Send an OTP to the customer's registered mobile number to verify their identity before handing over the ID card.
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <Button 
+                                            onClick={() => sendOtpToCustomer(order)} 
+                                            className="w-full bg-blue-500 hover:bg-blue-600"
+                                          >
+                                            <MessageSquare className="w-4 h-4 mr-2" />
+                                            Send OTP to Customer
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-4">
+                                          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                            <div className="flex items-center space-x-2">
+                                              <CheckCircle className="w-5 h-5 text-green-600" />
+                                              <div>
+                                                <p className="text-sm font-medium text-green-800">OTP Sent Successfully!</p>
+                                                <p className="text-xs text-green-700">
+                                                  6-digit OTP sent to {order.mobileNumber}
+                                                </p>
+                                                {otpSendTime && (
+                                                  <p className="text-xs text-green-600 mt-1">
+                                                    Sent at: {otpSendTime.toLocaleTimeString()}
+                                                  </p>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          
+                                          <div>
+                                            <Label htmlFor="otp">Enter OTP from Customer</Label>
+                                            <Input
+                                              id="otp"
+                                              value={otpInput}
+                                              onChange={(e) => {
+                                                const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                                                setOtpInput(value);
+                                              }}
+                                              placeholder="000000"
+                                              maxLength={6}
+                                              className="text-center text-2xl font-mono tracking-widest"
+                                              autoComplete="off"
+                                            />
+                                            <p className="text-xs text-slate-500 mt-1 text-center">
+                                              Ask customer to share the 6-digit OTP they received
+                                            </p>
+                                          </div>
+                                          
+                                          <div className="flex space-x-2">
+                                            <Button 
+                                              onClick={() => resendOtp(order)} 
+                                              variant="outline"
+                                              className="flex-1"
+                                              disabled={resendTimer > 0}
+                                            >
+                                              {resendTimer > 0 ? (
+                                                <>
+                                                  <Clock className="w-4 h-4 mr-2" />
+                                                  Resend in {resendTimer}s
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <MessageSquare className="w-4 h-4 mr-2" />
+                                                  Resend OTP
+                                                </>
+                                              )}
+                                            </Button>
+                                            <Button 
+                                              onClick={() => markAsDelivered(order._id)} 
+                                              className="flex-1 bg-green-500 hover:bg-green-600"
+                                              disabled={otpInput.length !== 6}
+                                            >
+                                              <CheckCircle className="w-4 h-4 mr-2" />
+                                              Confirm Delivery
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </DialogContent>
                                 </Dialog>
